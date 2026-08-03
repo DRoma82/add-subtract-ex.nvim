@@ -1,5 +1,7 @@
 # add-subtract-ex.nvim
 
+[![CI](https://github.com/DRoma82/add-subtract-ex.nvim/actions/workflows/ci.yml/badge.svg)](https://github.com/DRoma82/add-subtract-ex.nvim/actions/workflows/ci.yml)
+
 An extended `CTRL-A` / `CTRL-X` for Neovim.
 
 Native `CTRL-A` (`:help CTRL-A`) adds to the number at or after the cursor.

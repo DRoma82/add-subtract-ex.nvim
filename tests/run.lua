@@ -85,9 +85,17 @@ check("override: true -> apple", line_after({ words = { { "true", "apple" } } },
 check("override: apple -> true", line_after({ words = { { "true", "apple" } } }, "x = apple", 4, "inc"), "x = true")
 check("new pair: foo -> bar", line_after({ words = { { "foo", "bar" } } }, "foo", 0, "inc"), "bar")
 check("new pair: uppercase key Foo -> Bar", line_after({ words = { { "Foo", "Bar" } } }, "Foo", 0, "inc"), "Bar")
-check("new pair: case-insensitive match FOO -> BAR", line_after({ words = { { "Foo", "Bar" } } }, "FOO", 0, "inc"), "BAR")
+check(
+	"new pair: case-insensitive match FOO -> BAR",
+	line_after({ words = { { "Foo", "Bar" } } }, "FOO", 0, "inc"),
+	"BAR"
+)
 check("new pair: lowercase input keeps lowercase", line_after({ words = { { "Foo", "Bar" } } }, "foo", 0, "inc"), "bar")
-check("builtins off: foo -> bar", line_after({ builtins = false, words = { { "foo", "bar" } } }, "foo", 0, "inc"), "bar")
+check(
+	"builtins off: foo -> bar",
+	line_after({ builtins = false, words = { { "foo", "bar" } } }, "foo", 0, "inc"),
+	"bar"
+)
 
 -- Keymaps -----------------------------------------------------------------
 pcall(vim.keymap.del, "n", "<C-a>")
@@ -96,11 +104,15 @@ check("keys default: <C-a> mapped", vim.fn.maparg("<C-a>", "n") ~= "", true)
 pcall(vim.keymap.del, "n", "<C-a>")
 ase.setup({ keys = false })
 check("keys false: <C-a> not mapped", vim.fn.maparg("<C-a>", "n"), "")
-check("keys custom: <leader>a mapped", (function()
-	pcall(vim.keymap.del, "n", "<C-a>")
-	ase.setup({ keys = { increment = "<Plug>(ase-inc)" } })
-	return vim.fn.maparg("<Plug>(ase-inc)", "n") ~= "" and vim.fn.maparg("<C-a>", "n") == ""
-end)(), true)
+check(
+	"keys custom: <leader>a mapped",
+	(function()
+		pcall(vim.keymap.del, "n", "<C-a>")
+		ase.setup({ keys = { increment = "<Plug>(ase-inc)" } })
+		return vim.fn.maparg("<Plug>(ase-inc)", "n") ~= "" and vim.fn.maparg("<C-a>", "n") == ""
+	end)(),
+	true
+)
 
 -- Count (last: feedkeys leaves v:count lingering in headless -l scripts) ----
 check("count: 3<C-a> on number adds 3", feed_after({}, "n = 5", 4, "3<C-a>"), "n = 8")
