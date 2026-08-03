@@ -4,6 +4,8 @@
 
 An extended `CTRL-A` / `CTRL-X` for Neovim.
 
+![demo](assets/demo.gif)
+
 Native `CTRL-A` (`:help CTRL-A`) adds to the number at or after the cursor.
 This plugin keeps that behavior (see the signed-number note below) and extends
 the *same* keys to also:
