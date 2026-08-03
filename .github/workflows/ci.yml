@@ -10,23 +10,25 @@ jobs:
     name: Lint (stylua + luacheck)
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       - name: stylua
         uses: JohnnyMorganz/stylua-action@v4
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
-          version: latest
+          version: v2.5.2
           args: --check .
 
-      - uses: leafo/gh-actions-lua@v10
-        with:
-          luaVersion: "luajit-openresty"
-      - uses: leafo/gh-actions-luarocks@v4
-      - name: luacheck
+      # Install luacheck via apt-provided luarocks so the job does not depend on
+      # the GitHub cache service (which can break the leafo setup actions).
+      - name: Install luacheck
         run: |
-          luarocks install luacheck
-          luacheck .
+          sudo apt-get update
+          sudo apt-get install -y luarocks
+          sudo luarocks install luacheck
+
+      - name: luacheck
+        run: luacheck .
 
   test:
     name: Tests (Neovim ${{ matrix.neovim }})
@@ -36,7 +38,7 @@ jobs:
       matrix:
         neovim: [stable, nightly]
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       - uses: rhysd/action-setup-vim@v1
         with:
