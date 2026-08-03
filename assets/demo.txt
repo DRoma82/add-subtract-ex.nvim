@@ -1,15 +1,15 @@
--- add-subtract-ex.nvim demo  (press <C-a> / <C-x> with the cursor on each line)
+-- add-subtract-ex.nvim demo  (press <C-a> / <C-x>)
 
-local enabled = true          -- word pair:    true  <-> false
-local mode    = "left"        -- word pair:    left  <-> right
-local ready   = YES           -- casing kept:  YES   <-> NO
+local enabled = true		-- word pair:    true <-> false
+local mode    = "left"		-- word pair:    left <-> right
+local ready   = "YES"		-- casing kept:  YES  <-> NO
 
-local count   = 41            -- number:       41    -> 42
-local color   = 0xFE          -- hex literal:  0xFE  -> 0xFF
-local flags   = 0b0010        -- binary:       0b0010 -> 0b0011
+local count   = 41			-- number:       41     -> 42
+local color   = 0xFE		-- hex literal:  0xFE   -> 0xFF
+local flags   = 0b0010		-- binary:       0b0010 -> 0b0011
 
-local ok = a and b            -- symbol pair:  and   <-> or
-if x <= y then end            -- operator:     <=    <-> >=
-counter++                     -- operator:     ++    <-> --
+local ok = a and b			-- symbol pair:  and <-> or
+if x <= y then en			-- operator:     <=  <-> >=
+counter++					-- operator:     ++  <-> --
 
-local grade = 'A'             -- letter shift: A     -> B
+local grade = 'A'			-- letter shift: A -> B

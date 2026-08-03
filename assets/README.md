@@ -1,94 +1,53 @@
 # Demo assets
 
-`demo.gif` is referenced from the top of the root `README.md`.
+`demo.gif` is referenced from the top of the root `README.md` and is produced
+by recording `demo.tape` with [vhs](https://github.com/charmbracelet/vhs).
 
-## Recording a clean, reproducible demo
+Files:
 
-`demo.txt` is a scratch buffer that shows one feature per line. Each line has a
-comment describing the expected `<C-a>` / `<C-x>` result, so the recording is
-easy to script and reproduce.
+- `demo.txt` — the scratch buffer, one feature per line, each annotated with the
+  expected `<C-a>` / `<C-x>` result.
+- `demo-init.lua` — a curated, isolated Neovim config: Catppuccin Mocha theme +
+  the local plugin under development (loaded via `dir`), with legacy Lua syntax
+  highlighting. It writes its plugins/state under `assets/.demo/` (gitignored),
+  so it never touches your real `~/.local/share/nvim`.
+- `demo-open.sh` — launches Neovim with `demo-init.lua` and the isolated dirs.
+- `demo.tape` — the vhs script that drives the whole recording.
 
-### 1. Launch an isolated Neovim with only this plugin
+## Recording
 
 From the repo root:
 
 ```sh
-nvim -u NONE \
-  --cmd "set rtp+=$PWD" \
-  -c "lua require('add-subtract-ex').setup({})" \
-  -c "set number nolist laststatus=0 signcolumn=no" \
-  assets/demo.txt
+brew install vhs         # once; pulls ttyd + ffmpeg
+make demo                # -> assets/demo.gif   (same as: vhs assets/demo.tape)
 ```
 
-Then move the cursor onto each target and press `<C-a>` (or `<C-x>`).
-Try a count too, e.g. `3<C-a>` on the `count` or `grade` line.
+> First run is a **warm-up**: it clones Catppuccin into `assets/.demo/`, which
+> can take longer than the tape's startup `Sleep`. Run `make demo` **twice** —
+> discard the first GIF, keep the second (clean, fully-loaded) recording.
 
-### 2. Record the terminal
-
-Use whichever you prefer:
-
-- **asciinema + agg** (crisp, small):
-  ```sh
-  asciinema rec demo.cast          # record, then Ctrl-D to stop
-  agg demo.cast demo.gif           # convert cast -> gif
-  ```
-- **vhs** (scripted, fully reproducible — recommended):
-  see `demo.tape` below, then `vhs demo.tape` which writes `demo.gif` directly.
-- **Screen recorder + gifski** (macOS): record an `.mov`, then
-  `gifski --fps 15 --width 900 -o demo.gif input.mov`.
-
-### 3. Keep it small
-
-Aim for < 5 MB so it loads fast in the README:
-
-- ~10-15 fps is plenty for keypress demos.
-- Width ~800-1000 px.
-- Trim dead air at the start/end.
-
-Optimize if needed:
+To try it by hand instead of recording:
 
 ```sh
-gifsicle -O3 --lossy=60 demo.gif -o demo.gif
+./assets/demo-open.sh
+# then move onto each target and press <C-a> / <C-x>; try a count like 3<C-a>
 ```
 
-## demo.tape (vhs)
+## Tweaking
 
-If you have [vhs](https://github.com/charmbracelet/vhs), drop this in
-`assets/demo.tape` and run `vhs assets/demo.tape`:
+- **Theme / font** live at the top of `demo.tape` (`Set Theme "catppuccin-mocha"`,
+  `Set FontFamily "ComicCode Nerd Font"`). Change `Set FontSize` / `Width` /
+  `Height` to taste.
+- **Keystrokes** are search-driven (`/true` then `Ctrl+A`, ...). If you edit
+  `demo.txt`, keep each code token before its comment mention so the first match
+  lands on the code.
 
+## Keep it small
+
+Aim for < 5 MB so the README loads fast:
+
+```sh
+brew install gifsicle
+gifsicle -O3 --lossy=60 assets/demo.gif -o assets/demo.gif
 ```
-Output demo.gif
-Set FontSize 18
-Set Width 960
-Set Height 640
-Set Padding 20
-
-Hide
-Type "nvim -u NONE --cmd 'set rtp+=$PWD' -c \"lua require('add-subtract-ex').setup({})\" -c 'set number nolist laststatus=0 signcolumn=no' assets/demo.txt"
-Enter
-Sleep 1s
-Show
-
-# true -> false
-Type "3G" Sleep 500ms
-Type "f=w" Sleep 300ms
-Type "\x01" Sleep 800ms
-
-# number 41 -> 42
-Type "7G" Sleep 500ms
-Type "f4" Sleep 300ms
-Type "\x01" Sleep 800ms
-
-# symbol and -> or
-Type "11G" Sleep 500ms
-Type "fa" Sleep 300ms
-Type "\x01" Sleep 800ms
-
-# letter A -> B
-Type "16G" Sleep 500ms
-Type "fA" Sleep 300ms
-Type "\x01" Sleep 1s
-```
-
-`\x01` is `<C-a>` (use `\x18` for `<C-x>`). Adjust line numbers if you edit
-`demo.txt`.

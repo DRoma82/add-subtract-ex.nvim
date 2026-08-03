@@ -1,0 +1,3 @@
+# Isolated data/state/cache for the demo recording (assets/demo-open.sh).
+assets/.demo/
+.DS_Store

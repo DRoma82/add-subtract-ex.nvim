@@ -1,3 +1,4 @@
 std = "luajit"
 cache = true
-read_globals = { "vim" }
+globals = { "vim" }
+exclude_files = { "assets/.demo" }
