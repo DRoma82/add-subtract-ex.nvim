@@ -38,6 +38,19 @@ The **earliest target at or after the cursor wins**, mirroring how native
 }
 ```
 
+### vim.pack (Neovim 0.12+)
+
+Neovim's built-in manager doesn't run `setup()` for you, so call it after adding
+the plugin:
+
+```lua
+vim.pack.add({
+  { src = "https://github.com/DRoma82/add-subtract-ex.nvim" },
+})
+
+require("add-subtract-ex").setup() -- maps <C-a>/<C-x>
+```
+
 ### packer.nvim
 
 ```lua
