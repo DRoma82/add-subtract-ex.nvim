@@ -155,6 +155,10 @@ This started life as a standalone Lua script in my personal Neovim config.
 that config into a proper plugin — thanks for the nudge! Go check it out if you
 want a focused, configurable word-inversion plugin.
 
+## Contributors
+
+[![Contributors](https://contrib.rocks/image?repo=DRoma82/add-subtract-ex.nvim)](https://github.com/DRoma82/add-subtract-ex.nvim/graphs/contributors)
+
 ## License
 
 MIT
