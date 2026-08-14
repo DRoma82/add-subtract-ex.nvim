@@ -155,6 +155,13 @@ This started life as a standalone Lua script in my personal Neovim config.
 that config into a proper plugin — thanks for the nudge! Go check it out if you
 want a focused, configurable word-inversion plugin.
 
+## Similar plugins
+
+- [nvim-toggler](https://github.com/nguyenvukhang/nvim-toggler)
+- [dial.nvim](https://github.com/monaqa/dial.nvim)
+- [vim-speeddating](https://github.com/tpope/vim-speeddating)
+- [switch.vim](https://github.com/AndrewRadev/switch.vim)
+
 ## Contributors
 
 [![Contributors](https://contrib.rocks/image?repo=DRoma82/add-subtract-ex.nvim)](https://github.com/DRoma82/add-subtract-ex.nvim/graphs/contributors)
