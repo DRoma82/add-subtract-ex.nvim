@@ -10,6 +10,10 @@ A change that adds or alters a user-visible feature also updates the demo in the
 
 Recording conventions live in `assets/README.md`. The GIF itself is recorded by the user, so the final report ends with a reminder to regenerate it with `make demo` and check it visually.
 
+## Roadmap
+
+When a roadmap item is fully implemented, remove it from `ROADMAP.md` in the same change. Keep unfinished parts as separate items.
+
 ## Changelog
 
 A change a plugin user would notice (new feature, behavior change, bug fix, removed option) adds a bullet under `## [Unreleased]` in `CHANGELOG.md` in the same change, grouped under `Added`, `Changed`, `Fixed`, or `Removed`. Write the bullet for users: what they can now do or what behaves differently, including how to opt out when a default changes. Docs-, test-, CI-, and demo-only changes get no entry.

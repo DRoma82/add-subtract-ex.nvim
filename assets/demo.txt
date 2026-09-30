@@ -16,3 +16,4 @@ counter++					-- operator:     ++  <-> --
 local grade = 'A'			-- count:        3<C-a> A -> D
 local due   = "2024-01-31"	-- date:         day, month, year -> 2025-03-01
 local alarm = "11:59 PM"	-- time:         -> 12:00 AM, then AM -> PM
+local steps = { 10, 10, 10 }	-- visual:       g<C-a> -> 11, 12, 13

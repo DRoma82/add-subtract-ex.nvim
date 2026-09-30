@@ -9,7 +9,7 @@ Set Theme "catppuccin-mocha"
 Set FontFamily "ComicCode Nerd Font"
 Set FontSize 18
 Set Width 1000
-Set Height 750
+Set Height 780
 Set Padding 24
 
 # Open the isolated demo buffer without showing the launch command.
@@ -80,6 +80,11 @@ Ctrl+A Sleep 900ms
 # AM -> PM (toggle with the cursor on it)
 Type "fA" Sleep 400ms
 Ctrl+A Sleep 1s
+
+# Select all three numbers, then increment progressively per target.
+Type "/10, 10, 10" Enter Sleep 500ms
+Type "v9l" Sleep 600ms
+Type "g" Ctrl+A Sleep 1s
 
 # Markdown checkboxes only toggle in markdown buffers, so switch files off-camera.
 Hide

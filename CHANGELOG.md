@@ -6,6 +6,16 @@ and the project uses [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [0.4.0] - 2026-09-30
+
+### Added
+
+- Visual `<C-a>`/`<C-x>` changes every touched target in characterwise, linewise,
+  and blockwise selections. `g<C-a>`/`g<C-x>` applies increasing steps per target,
+  and blank lines copy and step the preceding result to build sequences. Each
+  action is one undo step. Custom keys also work in visual mode; use
+  `keys = false` or custom keys to leave native visual `<C-a>`/`<C-x>` unchanged.
+
 ## [0.3.0] - 2026-09-30
 
 ### Added
@@ -49,7 +59,8 @@ and the project uses [Semantic Versioning](https://semver.org/).
 - `sign_aware` option to treat a leading `+`/`-` as a number sign.
 - CI, demo GIF, and install docs for lazy.nvim and `vim.pack`.
 
-[Unreleased]: https://github.com/DRoma82/add-subtract-ex.nvim/compare/v0.3.0...HEAD
+[Unreleased]: https://github.com/DRoma82/add-subtract-ex.nvim/compare/v0.4.0...HEAD
+[0.4.0]: https://github.com/DRoma82/add-subtract-ex.nvim/compare/v0.3.0...v0.4.0
 [0.3.0]: https://github.com/DRoma82/add-subtract-ex.nvim/compare/v0.2.0...v0.3.0
 [0.2.0]: https://github.com/DRoma82/add-subtract-ex.nvim/compare/v0.1.0...v0.2.0
 [0.1.0]: https://github.com/DRoma82/add-subtract-ex.nvim/releases/tag/v0.1.0

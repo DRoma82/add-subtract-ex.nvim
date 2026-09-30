@@ -229,5 +229,136 @@ check("dot: new count replaces it", lines_after({ "7" }, "3<C-a>2.."), "14")
 vim.fn.setreg("q", vim.keycode("<C-a>w<C-a>j0"))
 check("macro: native step runs in order", lines_after({ "1 true", "2 true" }, "2@q"), "2 false, 3 false")
 
+-- Visual selections -------------------------------------------------------
+local function visual_after(opts, text, keys)
+	ase.setup(opts or {})
+	vim.api.nvim_buf_set_lines(0, 0, -1, false, text)
+	vim.api.nvim_win_set_cursor(0, { 1, 0 })
+	vim.cmd("let &undolevels = &undolevels")
+	vim.api.nvim_feedkeys(vim.keycode(keys), "x", false)
+	return table.concat(vim.api.nvim_buf_get_lines(0, 0, -1, false), ", ")
+end
+
+check("visual: all numbers on a line", visual_after({}, { "10 10" }, "V<C-a>"), "11 11")
+check("visual: decrement all numbers", visual_after({}, { "10 10" }, "V<C-x>"), "9 9")
+check("visual: progressive targets across lines", visual_after({}, { "10 10", "10 10" }, "Vjg<C-a>"), "11 12, 13 14")
+check("visual: progressive decrement", visual_after({}, { "10 10", "10 10" }, "Vjg<C-x>"), "9 8, 7 6")
+check("visual: count", visual_after({}, { "10 10" }, "V3<C-a>"), "13 13")
+check("visual: progressive count", visual_after({}, { "10 10" }, "V3g<C-a>"), "13 16")
+check("visual: mixed targets", visual_after({}, { "true && 9 a" }, "V<C-a>"), "false || 10 b")
+check("visual: toggles ignore count", visual_after({}, { "true false ++" }, "V3g<C-x>"), "false true --")
+check("visual: each letter is a target", visual_after({}, { "abc" }, "Vg<C-a>"), "bdf")
+check("visual: clamped letter does not stop scanning", visual_after({}, { "z a" }, "Vg<C-a>"), "z c")
+check("visual: length-changing words", visual_after({}, { "yes true no" }, "V<C-a>"), "no false yes")
+check(
+	"visual: overlapping custom symbol is not applied twice",
+	visual_after({ symbols = { { "true &&", "false ||" } } }, { "true &&" }, "V<C-a>"),
+	"false ||"
+)
+check(
+	"visual: overlapping symbols keep later targets",
+	visual_after({ symbols = { { "&|", "|&" } } }, { "&&| 10" }, "V<C-a>"),
+	"||| 11"
+)
+check("visual: single-character selection", visual_after({}, { "1 2" }, "v<C-a>"), "2 2")
+check("visual: touched word", visual_after({}, { "true false" }, "lv<C-a>"), "false false")
+check("visual: touched decimal", visual_after({}, { "199 5" }, "lv<C-a>"), "200 5")
+check("visual: selected range excludes later targets", visual_after({}, { "true false" }, "v3l<C-a>"), "false false")
+check("visual: reversed selection", visual_after({}, { "1 2 3" }, "$v0g<C-a>"), "2 4 6")
+check("visual: multiline characterwise", visual_after({}, { "1 2", "3 4" }, "2lvj0<C-a>"), "1 3, 4 4")
+check("visual: blockwise", visual_after({}, { "1 2 3", "4 5 6" }, "2l<C-v>j<C-a>"), "1 3 3, 4 6 6")
+check("visual: reversed blockwise", visual_after({}, { "1 2 3", "4 5 6" }, "j2l<C-v>kg<C-a>"), "1 3 3, 4 7 6")
+check(
+	"visual: complete dates use default part",
+	visual_after({}, { "2024-01-31 2024-02-28" }, "V<C-a>"),
+	"2024-02-01 2024-02-29"
+)
+check("visual: date part under selection start", visual_after({}, { "2024-01-31" }, "6lv<C-a>"), "2024-02-29")
+check("visual: complete times use default part", visual_after({}, { "23:59 10:30" }, "V<C-a>"), "00:59 11:30")
+check("visual: time part under selection start", visual_after({}, { "23:59" }, "3lv<C-a>"), "00:00")
+check("visual: hex and binary", visual_after({}, { "0xFF 0b1111" }, "V<C-a>"), "0x100 0b10000")
+check("visual: touched hex", visual_after({}, { "0xFF 5" }, "2lv<C-a>"), "0x100 5")
+check("visual: sign pairs remain separate targets", visual_after({}, { "-5 +5" }, "V<C-a>"), "+6 -6")
+check("visual: sign-aware numbers", visual_after({ sign_aware = true }, { "-5 +5 -0xFF" }, "V<C-a>"), "-4 +6 -0x100")
+check("visual: disabled letters", visual_after({ letters = false }, { "abc 10" }, "V<C-a>"), "abc 11")
+check("visual: fill blank lines", visual_after({}, { "10", "", "" }, "V2j<C-a>"), "11, 12, 13")
+check("visual: cumulative progressive filling", visual_after({}, { "10", "", "" }, "V2jg<C-a>"), "11, 13, 16")
+check(
+	"visual: fill dates across month boundary",
+	visual_after({}, { "2000-10-30", "", "" }, "V2j<C-a>"),
+	"2000-10-31, 2000-11-01, 2000-11-02"
+)
+check("visual: fill whitespace-only lines", visual_after({}, { "10", "  " }, "Vj<C-a>"), "11, 12")
+vim.o.virtualedit = "block"
+check(
+	"visual: block filling copies selected span",
+	visual_after({}, { "x 10 y", "" }, "2l<C-v>lj<C-a>"),
+	"x 11 y,   12"
+)
+check("visual: fill from line above selection", visual_after({}, { "10", "", "" }, "jVj<C-a>"), "10, 11, 12")
+check("visual: fill a partial tab", visual_after({}, { "x 10 y", "\t" }, "2l<C-v>lj<C-a>"), "x 11 y,   12    ")
+vim.o.virtualedit = "all"
+check(
+	"visual: block seed above selection",
+	visual_after({}, { "x 10 y", "", "" }, "j2l<C-v>lj<C-a>"),
+	"x 10 y,   11,   12"
+)
+vim.o.virtualedit = "block"
+check("visual: undo entire action", visual_after({}, { "true 9", "false 99" }, "Vj<C-a>u"), "true 9, false 99")
+check("visual: undo blank filling", visual_after({}, { "10", "", "" }, "V2jg<C-a>u"), "10, , ")
+check("visual: one redo restores entire action", visual_after({}, { "10", "", "" }, "V2jg<C-a>u<C-r>"), "11, 13, 16")
+
+vim.o.selection = "exclusive"
+check("visual: exclusive boundary", visual_after({}, { "1 2" }, "v2l<C-a>"), "2 2")
+check("visual: exclusive full number", visual_after({}, { "199 5" }, "v3l<C-a>"), "200 5")
+check("visual: selection option restored", vim.o.selection, "exclusive")
+vim.o.selection = "inclusive"
+check("visual: UTF-8 prefix", visual_after({}, { "é 10 20" }, "2lvg<C-a>"), "é 11 20")
+check("visual: tabs in block boundaries", visual_after({}, { "  1 2", "\t1 2" }, "2l<C-v>j<C-a>"), "  2 2, \t1 2")
+vim.o.virtualedit = ""
+
+check("visual: no targets", visual_after({}, { "...", "" }, "Vj<C-x>"), "..., ...")
+check("visual: no seed", visual_after({}, { "", "" }, "Vj<C-a>"), ", ")
+check("visual: decrement blank sequence", visual_after({}, { "10", "", "" }, "V2j2g<C-x>"), "8, 4, -2")
+check(
+	"visual: custom date part",
+	visual_after({ dates = { default_part = "month" } }, { "2024-01-31" }, "V<C-a>"),
+	"2024-02-29"
+)
+check("visual: custom time part", visual_after({ times = { default_part = "minute" } }, { "23:59" }, "V<C-a>"), "00:00")
+
+vim.bo.filetype = "markdown"
+check(
+	"visual: checkboxes",
+	visual_after({ letters = false }, { "- [ ] task", "1. [X] task" }, "Vj<C-a>"),
+	"- [x] task, 1. [ ] task"
+)
+check("visual: checkbox outside selection", visual_after({ letters = false }, { "- [ ] task" }, "v<C-a>"), "+ [ ] task")
+vim.bo.filetype = ""
+do
+	local notify, warnings = vim.notify, 0
+	vim.notify = function()
+		warnings = warnings + 1
+	end
+	check(
+		"visual: invalid stamps stay intact",
+		visual_after({}, { "31/02/2024 25:00 10" }, "Vg<C-a>"),
+		"31/02/2024 25:00 11"
+	)
+	check("visual: each invalid stamp warns once", warnings, 2)
+	vim.notify = notify
+end
+vim.bo.nrformats = "octal,hex,bin"
+check("visual: native octal padding", visual_after({}, { "0077 0x0f 0b0011" }, "V<C-a>"), "0100 0x10 0b0100")
+vim.bo.nrformats = "bin,hex"
+check("visual: custom keys", visual_after({ keys = { increment = "<F5>" } }, { "1 2" }, "Vg<F5>"), "2 4")
+for _, key in ipairs({ "<C-a>", "<C-x>", "g<C-a>", "g<C-x>" }) do
+	vim.keymap.del("x", key)
+end
+ase.setup({ keys = false })
+check("visual: keys false leaves keys native", vim.fn.maparg("<C-a>", "x"), "")
+ase.setup({})
+check("visual: default progressive mapping", vim.fn.maparg("g<C-x>", "x") ~= "", true)
+
 print(("\n%d passed, %d failed"):format(passed, failed))
 vim.cmd(failed == 0 and "cq 0" or "cq 1")

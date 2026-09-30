@@ -61,7 +61,7 @@ local function in_number_literal(line, col)
 end
 
 -- Earliest symbol pair whose match still covers or follows the cursor.
-local function find_symbol(symbols, line, cursor_col)
+local function find_symbol(symbols, line, cursor_col, min_start)
 	local best_col, best_end, best_symbol
 	for symbol in pairs(symbols) do
 		local from = 1
@@ -70,7 +70,7 @@ local function find_symbol(symbols, line, cursor_col)
 			if not start_col then
 				break
 			end
-			if cursor_col <= end_col then
+			if cursor_col <= end_col and (not min_start or start_col >= min_start) then
 				-- Prefer the earliest match; on a tie prefer the longer symbol so a
 				-- user-added "+" cannot shadow the built-in "++".
 				if not best_col or start_col < best_col or (start_col == best_col and end_col > best_end) then
@@ -78,7 +78,7 @@ local function find_symbol(symbols, line, cursor_col)
 				end
 				break
 			end
-			from = end_col + 1
+			from = min_start and start_col + 1 or end_col + 1
 		end
 	end
 	return best_col, best_end, best_symbol
@@ -95,10 +95,10 @@ end
 -- Earliest date (ISO yyyy-M-d, or d/M/y[y]yy in `dates.format` order) that
 -- covers or follows the cursor. Returns nil when none; `date.valid` is false
 -- for date-shaped text that is not a real calendar date.
-local function find_date(dates, line, cursor_col)
+local function find_date(dates, line, cursor_col, min_start)
 	local best
 	local function consider(start_col, end_col, sep, order, a, b, c)
-		if cursor_col >= end_col or (best and best.start_col <= start_col) then
+		if cursor_col >= end_col or (min_start and start_col < min_start) or (best and best.start_col <= start_col) then
 			return
 		end
 		local date = { start_col = start_col, end_col = end_col, kind = "date", sep = sep, order = order, text = {} }
@@ -198,13 +198,18 @@ end
 -- Earliest time (HH:mm[:ss], or h:mm[:ss] with an AM/PM suffix) that covers or
 -- follows the cursor. Unpadded hours need AM/PM so ratios like 3:16 are skipped.
 -- `time.valid` is false for time-shaped text that is not a real time.
-local function find_time(times, line, cursor_col)
+local function find_time(times, line, cursor_col, min_start)
 	for start_col, first, second, e in line:gmatch("%f[%d]()(%d%d?):(%d%d)()") do
 		local third = line:match("^:(%d%d)", e)
 		local digits_end = third and e + 3 or e
 		local space, meridiem, end_col = line:match("^( ?)([AaPp][Mm])%f[^%w_]()", digits_end)
 		end_col = end_col or digits_end
-		if cursor_col < end_col and not line:sub(digits_end, digits_end):match("%d") and (meridiem or #first == 2) then
+		if
+			cursor_col < end_col
+			and (not min_start or start_col >= min_start)
+			and not line:sub(digits_end, digits_end):match("%d")
+			and (meridiem or #first == 2)
+		then
 			local keys = (third or meridiem or times.two_part ~= "ms") and { "h", "m", "s" } or { "m", "s" }
 			local time = { start_col = start_col, end_col = end_col, kind = "time", text = {}, parts = {} }
 			local col = start_col
@@ -273,28 +278,49 @@ local function stepped_time(times, time, cursor_col, step)
 	return digits .. (time.meridiem and pieces[#pieces] or ""), part_col
 end
 
--- Act on the current line. `config` provides `words`/`symbols` lookups, a
--- `letters` flag and optional `dates`/`times` settings; `direction` is 1 to add
--- or -1 to subtract. Returns true when native Ctrl-a/Ctrl-x ran.
-function M.act(config, direction)
-	local native_key = direction < 0 and "<C-x>" or "<C-a>"
+local function number_span(config, line, cursor_col, min_start)
+	local formats = "," .. vim.bo.nrformats .. ","
+	local from = 1
+	while true do
+		local start_col = line:find("%d", from)
+		if not start_col then
+			return
+		end
+		local tail = line:sub(start_col)
+		local literal = formats:find(",hex,", 1, true) and tail:match("^0[xX]%x+")
+			or formats:find(",bin,", 1, true) and tail:match("^0[bB][01]+")
+		local text = literal or tail:match("^%d+")
+		local end_col = start_col + #text - 1
+		if cursor_col <= end_col then
+			local sign = line:sub(start_col - 1, start_col - 1)
+			if
+				(
+					sign == "-"
+					and not literal
+					and not formats:find(",unsigned,", 1, true)
+					and (config.sign_aware or not config.symbols[sign])
+				) or (config.sign_aware and (sign == "+" or sign == "-"))
+			then
+				start_col = start_col - 1
+			end
+			if not min_start or start_col >= min_start then
+				return { kind = "number", start_col = start_col, end_col = end_col }
+			end
+		end
+		from = end_col + 1
+	end
+end
 
-	-- Work with the current line directly so replacing a word does not disturb other text.
-	local line = vim.api.nvim_get_current_line()
-	local cursor = vim.api.nvim_win_get_cursor(0)
-	local cursor_col = cursor[2] + 1
-
+local function find_target(config, line, cursor_col, last_col, min_start)
 	-- Markdown task checkbox wins over the list marker before it ("-" is a symbol pair).
 	if vim.bo.filetype:find("markdown") then
 		local box_col, box_end = line:match("^%s*[-*+]%s+()%[[ xX]%]()")
 		if not box_col then
 			box_col, box_end = line:match("^%s*%d+[.)]%s+()%[[ xX]%]()")
 		end
-		if box_col and cursor_col < box_end then
+		if box_col and cursor_col < box_end and (not last_col or box_col <= last_col) then
 			local mark = line:sub(box_col + 1, box_col + 1) == " " and "x" or " "
-			vim.api.nvim_set_current_line(line:sub(1, box_col) .. mark .. line:sub(box_col + 2))
-			vim.api.nvim_win_set_cursor(0, { cursor[1], box_col - 1 })
-			return
+			return { start_col = box_col, end_col = box_end - 1, replacement = "[" .. mark .. "]" }
 		end
 	end
 
@@ -302,7 +328,7 @@ function M.act(config, direction)
 	local word_col, word_end, word_repl
 	for start_col, word, end_col in line:gmatch("()%f[%w_](%a+)%f[^%w_]()") do
 		-- end_col is the position after the word, so the word covers up to end_col - 1.
-		if cursor_col < end_col then
+		if cursor_col < end_col and (not min_start or start_col >= min_start) then
 			local target = config.words[word:lower()]
 			if target then
 				word_col, word_end, word_repl = start_col, end_col, match_case(word, target)
@@ -312,10 +338,10 @@ function M.act(config, direction)
 	end
 
 	-- Earliest symbol pair, number, and letter at or after the cursor.
-	local sym_col, sym_end, sym_symbol = find_symbol(config.symbols, line, cursor_col)
-	local date = config.dates and find_date(config.dates, line, cursor_col)
+	local sym_col, sym_end, sym_symbol = find_symbol(config.symbols, line, cursor_col, min_start)
+	local date = config.dates and find_date(config.dates, line, cursor_col, min_start)
 	local date_col = date and date.start_col or math.huge
-	local time = config.times and find_time(config.times, line, cursor_col)
+	local time = config.times and find_time(config.times, line, cursor_col, min_start)
 	local time_col = time and time.start_col or math.huge
 	local num_col = line:find("%d", cursor_col) or math.huge
 	local letter_col = config.letters and (line:find("[A-Za-z]", cursor_col) or math.huge) or math.huge
@@ -325,15 +351,12 @@ function M.act(config, direction)
 	local earliest = math.min(word_col, sym_col, date_col, time_col, num_col, letter_col)
 
 	if earliest == math.huge then
-		-- Nothing actionable on the line, so still let native Ctrl-a/Ctrl-x try.
-		return native_number(native_key)
+		return
 	end
 
 	-- Word/symbol replacements win ties against their own leading character.
 	if word_col == earliest then
-		vim.api.nvim_set_current_line(line:sub(1, word_col - 1) .. word_repl .. line:sub(word_end))
-		vim.api.nvim_win_set_cursor(0, { cursor[1], word_col - 1 })
-		return
+		return { start_col = word_col, end_col = word_end - 1, replacement = word_repl }
 	end
 
 	if sym_col == earliest then
@@ -344,13 +367,10 @@ function M.act(config, direction)
 			and (sym_symbol == "+" or sym_symbol == "-")
 			and line:sub(sym_end + 1, sym_end + 1):match("%d")
 		then
-			return native_number(native_key)
+			return number_span(config, line, sym_col, min_start)
 		end
 
-		local replacement = config.symbols[sym_symbol]
-		vim.api.nvim_set_current_line(line:sub(1, sym_col - 1) .. replacement .. line:sub(sym_end + 1))
-		vim.api.nvim_win_set_cursor(0, { cursor[1], sym_col - 1 })
-		return
+		return { start_col = sym_col, end_col = sym_end, replacement = config.symbols[sym_symbol] }
 	end
 
 	local stamp, stepped, stamp_config
@@ -360,31 +380,181 @@ function M.act(config, direction)
 		stamp, stepped, stamp_config = time, stepped_time, config.times
 	end
 	if stamp then
-		local text = line:sub(stamp.start_col, stamp.end_col - 1)
-		if not stamp.valid then
-			vim.notify(("add-subtract-ex: %s is not a valid %s"):format(text, stamp.kind), vim.log.levels.WARN)
+		stamp.end_col = stamp.end_col - 1
+		stamp.stepped, stamp.config = stepped, stamp_config
+		return stamp
+	end
+
+	if num_col == earliest or in_number_literal(line, letter_col) then
+		return number_span(config, line, cursor_col, min_start)
+	end
+
+	return { kind = "letter", start_col = letter_col, end_col = letter_col }
+end
+
+local function replacement_for(target, line, cursor_col, step)
+	if target.kind == "date" or target.kind == "time" then
+		if not target.valid then
+			local text = line:sub(target.start_col, target.end_col)
+			vim.notify(("add-subtract-ex: %s is not a valid %s"):format(text, target.kind), vim.log.levels.WARN)
 			return
 		end
-		local replacement, part_col = stepped(stamp_config, stamp, cursor_col, direction * vim.v.count1)
-		vim.api.nvim_set_current_line(line:sub(1, stamp.start_col - 1) .. replacement .. line:sub(stamp.end_col))
+		return target.stepped(target.config, target, cursor_col, step)
+	end
+	if target.kind == "letter" then
+		return shifted_letter(line:sub(target.start_col, target.end_col), step), target.start_col
+	end
+	return target.replacement, target.start_col
+end
+
+-- Returns true when native Ctrl-a/Ctrl-x ran, so normal-mode dot-repeat can rearm.
+function M.act(config, direction)
+	local line = vim.api.nvim_get_current_line()
+	local cursor = vim.api.nvim_win_get_cursor(0)
+	local cursor_col = cursor[2] + 1
+	local target = find_target(config, line, cursor_col)
+	if not target or target.kind == "number" then
+		return native_number(direction < 0 and "<C-x>" or "<C-a>")
+	end
+	local replacement, part_col = replacement_for(target, line, cursor_col, direction * vim.v.count1)
+	if replacement then
+		vim.api.nvim_set_current_line(line:sub(1, target.start_col - 1) .. replacement .. line:sub(target.end_col + 1))
 		vim.api.nvim_win_set_cursor(0, { cursor[1], part_col - 1 })
-		return
+	end
+end
+
+function M.visual(config, direction, progressive)
+	local mode, count = vim.fn.mode(), vim.v.count1
+	local regions = vim.fn.getregionpos(vim.fn.getpos("v"), vim.fn.getpos("."), { type = mode, eol = true })
+	-- Resolve partial tabs and virtual padding before leaving visual mode.
+	if mode ~= "V" then
+		for _, region in ipairs(regions) do
+			local first, last = region[1], region[2]
+			local row = first[2]
+			local line = vim.api.nvim_buf_get_lines(0, row - 1, row, false)[1]
+			if line:match("^%s*$") then
+				region.prefix = first[3] == 1 and first[4] == 0 and ""
+					or vim.fn.getregion({ 0, row, 1, 0 }, first, { type = "v", exclusive = true })[1]
+				local after = last[4] > 0 and last or { 0, row, last[3] + 1, 0 }
+				region.suffix = after[3] > #line and ""
+					or vim.fn.getregion(after, { 0, row, #line + 1, 0 }, { type = "v", exclusive = true })[1]
+			end
+		end
+	end
+	local previous
+	if regions[1] and regions[1][1][2] > 1 then
+		local first, last = regions[1][1], regions[1][2]
+		local row = first[2] - 1
+		if mode == "V" then
+			previous = vim.api.nvim_buf_get_lines(0, row - 1, row, false)[1]
+		else
+			local function above_position(pos, ending)
+				local cells = vim.fn.virtcol({ pos[2], pos[3], pos[4] }, true)
+				local vcol = cells[ending and 2 or 1]
+				if ending and pos[4] > 0 then
+					vcol = vcol - 1
+				end
+				local col = math.max(1, vim.fn.virtcol2col(0, row, vcol))
+				local base = vim.fn.virtcol({ row, col }, true)[1]
+				return { 0, row, col, math.max(0, vcol - base) }
+			end
+			previous = vim.fn.getregion(above_position(first, false), above_position(last, true), {
+				type = "v",
+				exclusive = false,
+			})[1]
+		end
+	end
+	vim.cmd.normal({ vim.keycode("<Esc>"), bang = true })
+	local changed, index = false, 0
+	local function join_undo()
+		if changed then
+			vim.cmd.undojoin()
+		end
+	end
+	local function set_line(row, text)
+		join_undo()
+		vim.api.nvim_buf_set_lines(0, row - 1, row, false, { text })
+		changed = true
 	end
 
-	if num_col == earliest then
-		return native_number(native_key)
+	for _, region in ipairs(regions) do
+		local first, last = region[1], region[2]
+		local row = first[2]
+		local line = vim.api.nvim_buf_get_lines(0, row - 1, row, false)[1]
+		local start_col = first[3] + (first[3] > #line and first[4] or 0)
+		local end_col = last[3] + (last[3] > #line and math.max(0, last[4] - 1) or 0)
+		if mode == "V" then
+			start_col, end_col = 1, #line
+		end
+		if line:match("^%s*$") and previous and previous ~= "" then
+			local prefix, suffix = region.prefix or "", region.suffix or ""
+			line = prefix .. previous .. suffix
+			start_col, end_col = #prefix + 1, #prefix + #previous
+			set_line(row, line)
+		end
+
+		local targets, col = {}, start_col
+		-- ponytail: rescans per target; index matches if long lines become slow.
+		while col <= end_col do
+			local target = find_target(config, line, col, end_col, col > start_col and col or nil)
+			if not target or target.start_col > end_col then
+				break
+			end
+			local part_col = math.max(start_col, target.start_col)
+			-- Full timestamps use their configured default, not their leading year/hour.
+			if start_col <= target.start_col then
+				part_col = target.start_col - 1
+			end
+			local step = direction * count * (progressive and index + 1 or 1)
+			if target.kind == "number" then
+				target.step = step
+			else
+				target.replacement = replacement_for(target, line, part_col, step)
+			end
+			if target.kind == "number" or target.replacement then
+				index = index + 1
+				targets[#targets + 1] = target
+			end
+			col = target.end_col + 1
+		end
+
+		-- Apply right-to-left so changing token lengths or signs cannot retarget later edits.
+		for i = #targets, 1, -1 do
+			local target = targets[i]
+			local old_length = #line
+			if target.kind == "number" then
+				vim.api.nvim_win_set_cursor(0, { row, target.start_col - 1 })
+				local width = target.end_col - target.start_col
+				local selection = "v" .. (width > 0 and width .. "l" or "")
+				local key = target.step < 0 and "<C-x>" or "<C-a>"
+				join_undo()
+				-- The captured region already respects 'selection'; the numeric token must be complete.
+				local saved_selection = vim.o.selection
+				vim.o.selection = "inclusive"
+				local ok, err =
+					pcall(vim.cmd.normal, { selection .. math.abs(target.step) .. vim.keycode(key), bang = true })
+				vim.o.selection = saved_selection
+				if not ok then
+					error(err)
+				end
+				local old_line = line
+				line = vim.api.nvim_get_current_line()
+				changed = changed or line ~= old_line
+			else
+				local text = line:sub(1, target.start_col - 1) .. target.replacement .. line:sub(target.end_col + 1)
+				if text ~= line then
+					set_line(row, text)
+					line = text
+				end
+			end
+			end_col = end_col + #line - old_length
+		end
+		previous = line:sub(start_col, end_col)
 	end
-
-	-- A hex digit inside a 0x.../0b... literal belongs to native number handling.
-	if in_number_literal(line, letter_col) then
-		return native_number(native_key)
+	if regions[1] then
+		local first = regions[1][1]
+		vim.api.nvim_win_set_cursor(0, { first[2], math.max(0, first[3] - 1) })
 	end
-
-	local step = direction * vim.v.count1
-	local replacement = shifted_letter(line:sub(letter_col, letter_col), step)
-
-	vim.api.nvim_set_current_line(line:sub(1, letter_col - 1) .. replacement .. line:sub(letter_col + 1))
-	vim.api.nvim_win_set_cursor(0, { cursor[1], letter_col - 1 })
 end
 
 return M

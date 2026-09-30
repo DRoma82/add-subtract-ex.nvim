@@ -96,6 +96,14 @@ function M.decrement()
 	core.act(M.config, -1)
 end
 
+function M.increment_visual(progressive)
+	core.visual(M.config, 1, progressive)
+end
+
+function M.decrement_visual(progressive)
+	core.visual(M.config, -1, progressive)
+end
+
 local direction, rearming = 1, false
 
 -- 'operatorfunc' for the mappings, so "." repeats the plugin rather than a raw edit.
@@ -120,9 +128,9 @@ local function operator_mapping(dir)
 end
 
 -- opts.keys:
---   nil   -> map <C-a>/<C-x> (default)
---   false -> map nothing (leave <C-a>/<C-x> native)
---   table -> map exactly the given keys; omitted directions stay native
+--   nil   -> map <C-a>/<C-x> and visual g variants (default)
+--   false -> map nothing (leave native keys unchanged)
+--   table -> map the given keys and visual g variants; omitted directions stay native
 function M.setup(opts)
 	opts = opts or {}
 	M.config = resolve(opts)
@@ -138,9 +146,21 @@ function M.setup(opts)
 
 	if keys.increment then
 		vim.keymap.set("n", keys.increment, operator_mapping(1), { expr = true, desc = "Add / toggle at cursor" })
+		vim.keymap.set("x", keys.increment, function()
+			M.increment_visual()
+		end, { desc = "Add / toggle selected targets" })
+		vim.keymap.set("x", "g" .. keys.increment, function()
+			M.increment_visual(true)
+		end, { desc = "Add progressively to selected targets" })
 	end
 	if keys.decrement then
 		vim.keymap.set("n", keys.decrement, operator_mapping(-1), { expr = true, desc = "Subtract / toggle at cursor" })
+		vim.keymap.set("x", keys.decrement, function()
+			M.decrement_visual()
+		end, { desc = "Subtract / toggle selected targets" })
+		vim.keymap.set("x", "g" .. keys.decrement, function()
+			M.decrement_visual(true)
+		end, { desc = "Subtract progressively from selected targets" })
 	end
 end
 

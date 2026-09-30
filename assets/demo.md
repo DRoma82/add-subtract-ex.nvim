@@ -6,4 +6,5 @@
 - [x] Step dates (yyyy-MM-dd, dd/MM/yyyy, MM/dd/yyyy)
 - [x] Step times (HH:mm, HH:mm:ss, 9:30 PM)
 - [x] Repeat any step with .
+- [x] Change visual selections, step progressively, and fill blank sequences
 - [ ] Toggle Markdown checkboxes

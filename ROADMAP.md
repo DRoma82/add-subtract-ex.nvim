@@ -1,10 +1,5 @@
 # Roadmap
 
-- [ ] **Visual mode `<C-a>`/`<C-x>` and `g<C-a>`/`g<C-x>`** (dial.nvim,
-  vim-speeddating): act on every target in the selection; `g` variants
-  step progressively (1, 2, 3...). Native visual `<C-a>` already covers plain
-  numbers. speeddating also fills blank lines from the line above to build
-  sequences (`2000-10-30`, `2000-10-31`, `2000-11-01`).
 - [ ] **Cycles longer than two** (dial.nvim `constant`, switch.vim lists):
   `foo -> bar -> baz -> foo`. `words`/`symbols` only take pairs today. Built-in
   candidates: weekdays (`Mon`...`Sun`, `Monday`...`Sunday`) and month names

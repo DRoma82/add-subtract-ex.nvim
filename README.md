@@ -16,11 +16,12 @@ the *same* keys to also:
 - **Shift letters** — `a` → `b`, `Z` stays `Z` (no wrapping), with a `count` (`3<C-a>`).
 - **Step dates** — `yyyy-MM-dd` and `dd/MM/yyyy` (or `MM/dd/yyyy`, also with `yy`): the day, month, or year under the cursor moves, rolling over months and years (`2024-01-31` → `2024-02-01`).
 - **Step times** — `HH:mm`, `HH:mm:ss`, and 12h `h:mm PM`: the part under the cursor moves and carries like a clock (`23:59` → `00:00`, `11:59 PM` → `12:00 AM`); `AM`/`PM` toggles.
-- **Repeat with `.`** — every action repeats on the target under the cursor, numbers included, with the same count.
+- **Change visual selections** with `<C-a>`/`<C-x>` on every touched target. Use `g<C-a>`/`g<C-x>` for increasing steps per target, or fill blank lines to build sequences.
+- **Repeat with `.`** in normal mode on the target under the cursor, numbers included, with the same count.
 - **Defer to native numbers** — decimal, hex (`0xFF`), and binary (`0b1010`) literals are handled by native `CTRL-A`/`CTRL-X`.
 
-The **earliest target at or after the cursor wins**, mirroring how native
-`CTRL-A` targets the nearest number instead of always preferring one kind.
+In normal mode, the **earliest target at or after the cursor wins**, mirroring
+how native `CTRL-A` targets the nearest number instead of always preferring one kind.
 
 > ⚠️ **Signed numbers:** because `+`/`-` is a built-in symbol pair, by default a
 > leading sign is toggled instead of incrementing the number. This applies to
@@ -72,10 +73,11 @@ Defaults:
 
 ```lua
 require("add-subtract-ex").setup({
-  -- Keys to map in normal mode.
-  --   nil (omit)  -> map <C-a> / <C-x>
-  --   false       -> map nothing, leave <C-a>/<C-x> native
-  --   table       -> map exactly these; omitted directions stay native
+  -- Keys to map in normal and visual modes.
+  --   nil (omit)  -> map <C-a> / <C-x>, plus visual g<C-a> / g<C-x>
+  --   false       -> map nothing, leave native keys unchanged
+  --   table       -> map these and their visual g-prefixed variants
+  --                  omitted directions stay native
   keys = { increment = "<C-a>", decrement = "<C-x>" },
 
   -- Enable alphabetical letter shifting (a -> b).
@@ -144,6 +146,40 @@ ratios and verse references like `3:16` stay numbers.
   with seconds or `AM`/`PM` are always clock times.
 - Invalid times (`25:00`, `13:00 PM`) are left alone with a warning.
 
+### Visual mode
+
+Characterwise `v`, linewise `V`, and blockwise `<C-v>` selections change every
+selected target, including multiple targets on the same line. Unlike native
+visual number handling, the plugin changes the whole token when any part of
+it is selected, even if it extends outside the selection.
+
+- `<C-a>`/`<C-x>` adds or subtracts the count on each target.
+- `g<C-a>`/`g<C-x>` uses the count multiplied by 1, 2, 3, and so on, in
+  top-to-bottom, left-to-right order. Selecting `10 10` on two lines and pressing
+  `g<C-a>` produces `11 12` and `13 14`.
+- Fully selected dates and times step their configured `default_part`. If the
+  selection starts inside a timestamp, that part steps instead.
+- Word pairs, symbol pairs, checkboxes, and AM/PM remain single toggles. They
+  occupy a position in the progressive sequence but ignore its step. Invalid
+  dates and times warn, stay unchanged, and do not advance the sequence.
+- With letters enabled, each ASCII letter outside a recognised token is a
+  target, including letters in comments and prose. Set `letters = false` to
+  leave those letters alone.
+- By default, a number's sign is a separate symbol target. Selecting `-5`
+  changes it to `+6`; with `sign_aware = true`, it becomes `-4`.
+
+Blank or whitespace-only lines copy the preceding result and step it again.
+For example, selecting `2000-10-30` and two blank lines linewise, then pressing
+`<C-a>`, produces `2000-10-31`, `2000-11-01`, and `2000-11-02`. If the selection
+starts on a blank line, its seed is the line immediately above the selection.
+The `g` variants compound their increasing steps, so `10` and two blanks become
+`11`, `13`, and `16`.
+
+Linewise filling copies the whole line; characterwise and blockwise filling
+copies the selected span. Use `virtualedit=block` to select a fixed rectangle
+extending into blank or shorter lines. One `u` undoes the entire action,
+including any filled lines. Visual dot-repeat is not supported.
+
 ### Custom keys (leaving `<C-a>`/`<C-x>` native)
 
 ```lua
@@ -151,6 +187,11 @@ require("add-subtract-ex").setup({
   keys = { increment = "<leader>a", decrement = "<leader>x" },
 })
 ```
+
+These keys work in both normal and visual modes. In visual mode,
+`g<leader>a` and `g<leader>x` apply progressive steps. `keys = false` installs
+no mappings in either mode. Configure this before the first `setup()` call;
+calling `setup()` again does not remove mappings installed by an earlier call.
 
 ### Extending and overriding dictionaries
 
@@ -183,13 +224,19 @@ Without keymaps you can call the functions directly:
 local ase = require("add-subtract-ex")
 ase.increment() -- like <C-a>
 ase.decrement() -- like <C-x>
+
+-- Call these while a visual selection is active.
+ase.increment_visual()     -- like visual <C-a>
+ase.decrement_visual()     -- like visual <C-x>
+ase.increment_visual(true) -- like visual g<C-a>
+ase.decrement_visual(true) -- like visual g<C-x>
 ```
 
 A count applies to numbers, letter shifts, dates, and times (e.g. `5<C-a>` adds 5, shifts a
 letter 5 positions, or moves a date or time part by 5). Word and symbol pairs are single toggles and ignore the count.
 
-Dot-repeat (`.`) works through the keys that `setup()` maps; direct calls to
-`increment()`/`decrement()` are not repeatable.
+Normal-mode dot-repeat (`.`) works through the keys that `setup()` maps;
+direct calls to `increment()`/`decrement()` are not repeatable.
 
 ## Tests
 
