@@ -126,7 +126,91 @@ check(
 	true
 )
 
+-- Dates -------------------------------------------------------------------
+check("date iso: day under cursor", line_after({}, "d = 2024-01-05", 13, "inc"), "d = 2024-01-06")
+check("date iso: day rolls month", line_after({}, "2024-01-31", 9, "inc"), "2024-02-01")
+check("date iso: day rolls year", line_after({}, "2024-12-31", 9, "inc"), "2025-01-01")
+check("date iso: day rolls back", line_after({}, "2024-03-01", 9, "dec"), "2024-02-29")
+check("date iso: month clamps day", line_after({}, "2024-01-31", 6, "inc"), "2024-02-29")
+check("date iso: month rolls year", line_after({}, "2024-12-15", 6, "inc"), "2025-01-15")
+check("date iso: year clamps leap day", line_after({}, "2024-02-29", 0, "inc"), "2025-02-28")
+check("date iso: separator belongs to part before", line_after({}, "2024-01-05", 4, "inc"), "2025-01-05")
+check("date iso: cursor before date -> day", line_after({}, "= 2024-01-05", 0, "inc"), "= 2024-01-06")
+check(
+	"date: default_part = month",
+	line_after({ dates = { default_part = "month" } }, "= 2024-01-05", 0, "inc"),
+	"= 2024-02-05"
+)
+check("date iso: yyyy clamps at 9999", line_after({}, "9999-12-31", 9, "inc"), "9999-12-31")
+check("date dmy: 31/01/2024 -> 01/02/2024", line_after({}, "31/01/2024", 0, "inc"), "01/02/2024")
+check("date dmy: month part", line_after({}, "15/12/2024", 3, "inc"), "15/01/2025")
+check("date mdy: day part", line_after({ dates = { format = "mdy" } }, "01/31/2024", 3, "inc"), "02/01/2024")
+check("date: unpadded kept", line_after({}, "9/1/2024", 0, "inc"), "10/1/2024")
+check("date: pad = true", line_after({ dates = { pad = true } }, "1/2/2024", 0, "inc"), "02/02/2024")
+check("date yy: wraps century via pivot", line_after({}, "31/12/99", 0, "inc"), "01/01/00")
+check("date yy: clamps at pivot window", line_after({}, "01/01/68", 6, "inc"), "01/01/68")
+check("date yy: 29/02/00 valid (2000)", line_after({}, "29/02/00", 0, "inc"), "01/03/00")
+do
+	local notify, warned = vim.notify, nil
+	vim.notify = function(msg)
+		warned = msg
+	end
+	check("date invalid: unchanged", line_after({}, "31/02/2024", 0, "inc"), "31/02/2024")
+	check("date invalid: warns", warned, "add-subtract-ex: 31/02/2024 is not a valid date")
+	check(
+		"date yy: custom pivot makes 00 = 1900 (no leap day)",
+		line_after({ dates = { century_pivot = 0 } }, "29/02/00", 0, "inc"),
+		"29/02/00"
+	)
+	vim.notify = notify
+end
+check(
+	"date: disabled -> native (-01 read as negative)",
+	line_after({ dates = false }, "2024-01-05", 6, "inc"),
+	"202400-05"
+)
+check("date: 3-digit year is not a date", line_after({}, "1/2/345", 4, "inc"), "1/2/346")
+
+-- Times -------------------------------------------------------------------
+check("time: minute carries hour", line_after({}, "at 10:59", 6, "inc"), "at 11:00")
+check("time: wraps midnight", line_after({}, "23:59:59", 6, "inc"), "00:00:00")
+check("time: hour wraps back", line_after({}, "00:30", 0, "dec"), "23:30")
+check("time: separator belongs to part before", line_after({}, "10:30", 2, "inc"), "11:30")
+check("time: cursor before -> hour", line_after({}, "= 10:30", 0, "inc"), "= 11:30")
+check(
+	"time: default_part = minute",
+	line_after({ times = { default_part = "minute" } }, "= 10:30", 0, "inc"),
+	"= 10:31"
+)
+check("time: unpadded 24h is not a time", line_after({}, "3:16", 2, "inc"), "3:17")
+check("time 12h: carry flips meridiem", line_after({}, "11:59 PM", 3, "inc"), "12:00 AM")
+check("time 12h: 11 am -> 12 pm", line_after({}, "11:00am", 0, "inc"), "12:00pm")
+check("time 12h: unpadded hour kept", line_after({}, "9:30 PM", 0, "inc"), "10:30 PM")
+check("time 12h: toggle meridiem", line_after({}, "9:30 PM", 5, "inc"), "9:30 AM")
+check("time 12h: cursor on meridiem", line_after({}, "9:30 Pm", 6, "dec"), "9:30 Am")
+check("time ms: minute wraps at 60", line_after({ times = { two_part = "ms" } }, "59:59", 3, "inc"), "00:00")
+check(
+	"time ms: default part falls to first",
+	line_after({ times = { two_part = "ms" } }, "= 45:30", 0, "inc"),
+	"= 46:30"
+)
+check("time ms: seconds still means hms", line_after({ times = { two_part = "ms" } }, "23:59:59", 0, "inc"), "00:59:59")
+check("time: disabled -> native", line_after({ times = false }, "10:30", 3, "inc"), "10:31")
+do
+	local notify, warned = vim.notify, nil
+	vim.notify = function(msg)
+		warned = msg
+	end
+	check("time invalid: unchanged", line_after({}, "25:00", 0, "inc"), "25:00")
+	check("time invalid: warns", warned, "add-subtract-ex: 25:00 is not a valid time")
+	check("time invalid: 13:00 PM", line_after({}, "13:00 PM", 0, "inc"), "13:00 PM")
+	vim.notify = notify
+end
+check("datetime: time does not carry into date", line_after({}, "2024-01-31 23:59", 14, "inc"), "2024-01-31 00:00")
+
 -- Count (last: feedkeys leaves v:count lingering in headless -l scripts) ----
+check("count: 40<C-a> on date day", feed_after({}, "2024-01-01", 9, "40<C-a>"), "2024-02-10")
+check("count: 90<C-a> on minute", feed_after({}, "10:00", 3, "90<C-a>"), "11:30")
 check("count: 3<C-a> on number adds 3", feed_after({}, "n = 5", 4, "3<C-a>"), "n = 8")
 check("count: 3<C-a> on letter shifts 3", feed_after({}, "a", 0, "3<C-a>"), "d")
 

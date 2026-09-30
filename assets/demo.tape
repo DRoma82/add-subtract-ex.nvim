@@ -9,7 +9,7 @@ Set Theme "catppuccin-mocha"
 Set FontFamily "ComicCode Nerd Font"
 Set FontSize 18
 Set Width 1000
-Set Height 660
+Set Height 720
 Set Padding 24
 
 # Open the isolated demo buffer without showing the launch command.
@@ -58,5 +58,13 @@ Ctrl+A Sleep 900ms
 
 # A -> B (letter shift)
 Type "/A'" Enter Sleep 500ms
+Ctrl+A Sleep 900ms
+
+# 2024-01-31 -> 2024-02-01 (day rolls the month)
+Type `/31"` Enter Sleep 500ms
+Ctrl+A Sleep 900ms
+
+# 11:59 PM -> 12:00 AM (minute carries the hour and meridiem)
+Type "/59 " Enter Sleep 500ms
 Ctrl+A Sleep 1s
 

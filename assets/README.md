@@ -19,8 +19,8 @@ Files:
 From the repo root:
 
 ```sh
-brew install vhs         # once; pulls ttyd + ffmpeg
-make demo                # -> assets/demo.gif   (same as: vhs assets/demo.tape)
+brew install vhs gifsicle  # once; vhs pulls ttyd + ffmpeg
+make demo                  # -> assets/demo.gif, recorded then shrunk with gifsicle
 ```
 
 > First run is a **warm-up**: it clones Catppuccin into `assets/.demo/`, which
@@ -45,9 +45,6 @@ To try it by hand instead of recording:
 
 ## Keep it small
 
-Aim for < 5 MB so the README loads fast:
-
-```sh
-brew install gifsicle
-gifsicle -O3 --lossy=60 assets/demo.gif -o assets/demo.gif
-```
+Aim for < 5 MB so the README loads fast. `make demo` already runs
+`gifsicle -O3 --lossy=60`; raise `--lossy` in the `Makefile` if the GIF is
+still too big.

@@ -13,3 +13,5 @@ if x <= y then en			-- operator:     <=  <-> >=
 counter++					-- operator:     ++  <-> --
 
 local grade = 'A'			-- letter shift: A -> B
+local due   = "2024-01-31"	-- date:         2024-01-31 -> 2024-02-01
+local alarm = "11:59 PM"	-- time:         11:59 PM   -> 12:00 AM

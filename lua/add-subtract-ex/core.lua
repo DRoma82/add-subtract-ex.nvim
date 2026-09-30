@@ -1,5 +1,6 @@
 -- Core logic for add-subtract-ex: act on the earliest target at or after the
--- cursor. Word pairs and symbol pairs invert to their counterpart, numbers use
+-- cursor. Word pairs and symbol pairs invert to their counterpart, dates and
+-- times step the part under the cursor, numbers use
 -- the native Ctrl-a/Ctrl-x command, and letters shift alphabetically without
 -- cycling. Whichever appears first wins, matching how native Ctrl-a targets the
 -- nearest number rather than always preferring letters.
@@ -82,8 +83,198 @@ local function find_symbol(symbols, line, cursor_col)
 	return best_col, best_end, best_symbol
 end
 
--- Act on the current line. `config` provides `words`/`symbols` lookups and a
--- `letters` flag; `direction` is 1 to add or -1 to subtract.
+local function days_in_month(year, month)
+	if month == 2 then
+		local leap = year % 4 == 0 and (year % 100 ~= 0 or year % 400 == 0)
+		return leap and 29 or 28
+	end
+	return ({ 31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31 })[month]
+end
+
+-- Earliest date (ISO yyyy-M-d, or d/M/y[y]yy in `dates.format` order) that
+-- covers or follows the cursor. Returns nil when none; `date.valid` is false
+-- for date-shaped text that is not a real calendar date.
+local function find_date(dates, line, cursor_col)
+	local best
+	local function consider(start_col, end_col, sep, order, a, b, c)
+		if cursor_col >= end_col or (best and best.start_col <= start_col) then
+			return
+		end
+		local date = { start_col = start_col, end_col = end_col, kind = "date", sep = sep, order = order, text = {} }
+		local col = start_col
+		for i, raw in ipairs({ a, b, c }) do
+			date.text[order[i]] = raw
+			date[order[i] .. "_col"] = col
+			col = col + #raw + 1
+		end
+		local year = tonumber(date.text.y)
+		if #date.text.y == 2 then
+			date.lo = 1900 + dates.century_pivot
+			year = year < dates.century_pivot and 2000 + year or 1900 + year
+		else
+			date.lo = 0
+		end
+		date.hi = date.lo == 0 and 9999 or date.lo + 99
+		date.y, date.m, date.d = year, tonumber(date.text.m), tonumber(date.text.d)
+		date.valid = 1 <= date.m and date.m <= 12 and 1 <= date.d and date.d <= days_in_month(date.y, date.m)
+		best = date
+	end
+
+	for s, y, m, d, e in line:gmatch("%f[%d]()(%d%d%d%d)%-(%d%d?)%-(%d%d?)()%f[%D]") do
+		consider(s, e, "-", { "y", "m", "d" }, y, m, d)
+	end
+	local slash_order = dates.format == "mdy" and { "m", "d", "y" } or { "d", "m", "y" }
+	for s, a, b, y, e in line:gmatch("%f[%d]()(%d%d?)/(%d%d?)/(%d+)()%f[%D]") do
+		if #y == 2 or #y == 4 then
+			consider(s, e, "/", slash_order, a, b, y)
+		end
+	end
+	return best
+end
+
+-- Step the part of `date` under the cursor (a separator belongs to the part
+-- before it; before the date uses `dates.default_part`). Returns the new text
+-- and the column where the stepped part now starts.
+local function stepped_date(dates, date, cursor_col, step)
+	local part = dates.default_part:sub(1, 1)
+	for _, key in ipairs(date.order) do
+		if date[key .. "_col"] <= cursor_col then
+			part = key
+		end
+	end
+
+	local y, m, d = date.y, date.m, date.d
+	if part == "d" then
+		-- ponytail: walks month by month, fine unless counts reach the millions.
+		d = d + step
+		while d > days_in_month(y, m) do
+			d = d - days_in_month(y, m)
+			m = m + 1
+			if m > 12 then
+				m, y = 1, y + 1
+			end
+		end
+		while d < 1 do
+			m = m - 1
+			if m < 1 then
+				m, y = 12, y - 1
+			end
+			d = d + days_in_month(y, m)
+		end
+	elseif part == "m" then
+		local months = y * 12 + m - 1 + step
+		y, m = math.floor(months / 12), months % 12 + 1
+	else
+		y = y + step
+	end
+	if y < date.lo or y > date.hi then
+		local low = y < date.lo
+		y = low and date.lo or date.hi
+		if part == "m" then
+			m = low and 1 or 12
+		elseif part == "d" then
+			m, d = low and 1 or 12, low and 1 or 31
+		end
+	end
+	d = math.min(d, days_in_month(y, m))
+
+	local values = { y = y, m = m, d = d }
+	local pieces, part_col, col = {}, date.start_col, date.start_col
+	for i, key in ipairs(date.order) do
+		local width = #date.text[key]
+		if key ~= "y" and dates.pad then
+			width = 2
+		end
+		pieces[i] = ("%0" .. width .. "d"):format(key == "y" and width == 2 and y % 100 or values[key])
+		if key == part then
+			part_col = col
+		end
+		col = col + #pieces[i] + 1
+	end
+	return table.concat(pieces, date.sep), part_col
+end
+
+-- Earliest time (HH:mm[:ss], or h:mm[:ss] with an AM/PM suffix) that covers or
+-- follows the cursor. Unpadded hours need AM/PM so ratios like 3:16 are skipped.
+-- `time.valid` is false for time-shaped text that is not a real time.
+local function find_time(times, line, cursor_col)
+	for start_col, first, second, e in line:gmatch("%f[%d]()(%d%d?):(%d%d)()") do
+		local third = line:match("^:(%d%d)", e)
+		local digits_end = third and e + 3 or e
+		local space, meridiem, end_col = line:match("^( ?)([AaPp][Mm])%f[^%w_]()", digits_end)
+		end_col = end_col or digits_end
+		if cursor_col < end_col and not line:sub(digits_end, digits_end):match("%d") and (meridiem or #first == 2) then
+			local keys = (third or meridiem or times.two_part ~= "ms") and { "h", "m", "s" } or { "m", "s" }
+			local time = { start_col = start_col, end_col = end_col, kind = "time", text = {}, parts = {} }
+			local col = start_col
+			for i, raw in ipairs({ first, second, third }) do
+				time.text[keys[i]] = raw
+				time.parts[i] = { key = keys[i], col = col }
+				col = col + #raw + 1
+			end
+			local h, m, s = tonumber(time.text.h or 0), tonumber(time.text.m), tonumber(time.text.s or 0)
+			if meridiem then
+				time.meridiem, time.space = meridiem, space
+				table.insert(time.parts, { key = "p", col = digits_end + #space })
+				time.valid = 1 <= h and h <= 12
+				h = h % 12 + (meridiem:lower() == "pm" and 12 or 0)
+			else
+				time.valid = h < 24
+			end
+			time.valid = time.valid and m < 60 and s < 60
+			time.seconds = h * 3600 + m * 60 + s
+			time.wrap = time.text.h and 86400 or 3600
+			return time
+		end
+	end
+end
+
+-- Step the part of `time` under the cursor on a wrapping clock (24h, or one
+-- hour for mm:ss). The AM/PM part toggles by 12 hours and ignores the count.
+local function stepped_time(times, time, cursor_col, step)
+	local part = time.parts[1].key
+	for _, p in ipairs(time.parts) do
+		if p.key == times.default_part:sub(1, 1) then
+			part = p.key
+		end
+	end
+	for _, p in ipairs(time.parts) do
+		if p.col <= cursor_col then
+			part = p.key
+		end
+	end
+
+	local delta = part == "p" and 43200 or step * ({ h = 3600, m = 60, s = 1 })[part]
+	local seconds = (time.seconds + delta) % time.wrap
+	local values = { h = math.floor(seconds / 3600), m = math.floor(seconds / 60) % 60, s = seconds % 60 }
+	if time.meridiem then
+		values.h = (values.h + 11) % 12 + 1
+	end
+
+	local pieces, part_col, col = {}, time.start_col, time.start_col
+	for i, p in ipairs(time.parts) do
+		if p.key == "p" then
+			local letter = seconds >= 43200 and "p" or "a"
+			if time.meridiem:sub(1, 1):match("%u") then
+				letter = letter:upper()
+			end
+			pieces[i] = time.space .. letter .. time.meridiem:sub(2)
+			col = col - 1 + #time.space
+		else
+			pieces[i] = ("%0" .. #time.text[p.key] .. "d"):format(values[p.key])
+		end
+		if p.key == part then
+			part_col = col
+		end
+		col = col + #pieces[i] + 1
+	end
+	local digits = table.concat(pieces, ":", 1, time.meridiem and #pieces - 1 or #pieces)
+	return digits .. (time.meridiem and pieces[#pieces] or ""), part_col
+end
+
+-- Act on the current line. `config` provides `words`/`symbols` lookups, a
+-- `letters` flag and optional `dates`/`times` settings; `direction` is 1 to add
+-- or -1 to subtract.
 function M.act(config, direction)
 	local native_key = direction < 0 and "<C-x>" or "<C-a>"
 
@@ -121,12 +312,16 @@ function M.act(config, direction)
 
 	-- Earliest symbol pair, number, and letter at or after the cursor.
 	local sym_col, sym_end, sym_symbol = find_symbol(config.symbols, line, cursor_col)
+	local date = config.dates and find_date(config.dates, line, cursor_col)
+	local date_col = date and date.start_col or math.huge
+	local time = config.times and find_time(config.times, line, cursor_col)
+	local time_col = time and time.start_col or math.huge
 	local num_col = line:find("%d", cursor_col) or math.huge
 	local letter_col = config.letters and (line:find("[A-Za-z]", cursor_col) or math.huge) or math.huge
 	word_col = word_col or math.huge
 	sym_col = sym_col or math.huge
 
-	local earliest = math.min(word_col, sym_col, num_col, letter_col)
+	local earliest = math.min(word_col, sym_col, date_col, time_col, num_col, letter_col)
 
 	if earliest == math.huge then
 		-- Nothing actionable on the line, so still let native Ctrl-a/Ctrl-x try.
@@ -156,6 +351,24 @@ function M.act(config, direction)
 		local replacement = config.symbols[sym_symbol]
 		vim.api.nvim_set_current_line(line:sub(1, sym_col - 1) .. replacement .. line:sub(sym_end + 1))
 		vim.api.nvim_win_set_cursor(0, { cursor[1], sym_col - 1 })
+		return
+	end
+
+	local stamp, stepped, stamp_config
+	if date_col == earliest then
+		stamp, stepped, stamp_config = date, stepped_date, config.dates
+	elseif time_col == earliest then
+		stamp, stepped, stamp_config = time, stepped_time, config.times
+	end
+	if stamp then
+		local text = line:sub(stamp.start_col, stamp.end_col - 1)
+		if not stamp.valid then
+			vim.notify(("add-subtract-ex: %s is not a valid %s"):format(text, stamp.kind), vim.log.levels.WARN)
+			return
+		end
+		local replacement, part_col = stepped(stamp_config, stamp, cursor_col, direction * vim.v.count1)
+		vim.api.nvim_set_current_line(line:sub(1, stamp.start_col - 1) .. replacement .. line:sub(stamp.end_col))
+		vim.api.nvim_win_set_cursor(0, { cursor[1], part_col - 1 })
 		return
 	end
 

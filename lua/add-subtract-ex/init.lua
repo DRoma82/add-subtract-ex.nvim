@@ -63,6 +63,14 @@ local function lower_pairs(pairs_list)
 	return out
 end
 
+local default_dates = { format = "dmy", pad = false, default_part = "day", century_pivot = 69 }
+local default_times = { default_part = "hour", two_part = "hm" }
+
+-- `false` disables a feature; a table overrides some of its defaults.
+local function feature(value, defaults)
+	return value ~= false and vim.tbl_extend("force", defaults, type(value) == "table" and value or {})
+end
+
 -- Resolve user options into the config consumed by core.act.
 local function resolve(opts)
 	opts = opts or {}
@@ -72,6 +80,8 @@ local function resolve(opts)
 		symbols = build_lookup({ use_builtins and default_symbols or {}, opts.symbols }),
 		letters = opts.letters ~= false,
 		sign_aware = opts.sign_aware == true,
+		dates = feature(opts.dates, default_dates),
+		times = feature(opts.times, default_times),
 	}
 end
 

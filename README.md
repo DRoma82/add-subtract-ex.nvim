@@ -14,6 +14,8 @@ the *same* keys to also:
 - **Invert symbol pairs** — `&&`/`||`, `==`/`!=`, `<=`/`>=`, `++`/`--`, `+`/`-`.
 - **Toggle Markdown checkboxes** — `- [ ]` ↔ `- [x]` (also `[X]`, `*`/`+` bullets, and `1.` lists) in `markdown` buffers, when the cursor is on or before the checkbox.
 - **Shift letters** — `a` → `b`, `Z` stays `Z` (no wrapping), with a `count` (`3<C-a>`).
+- **Step dates** — `yyyy-MM-dd` and `dd/MM/yyyy` (or `MM/dd/yyyy`, also with `yy`): the day, month, or year under the cursor moves, rolling over months and years (`2024-01-31` → `2024-02-01`).
+- **Step times** — `HH:mm`, `HH:mm:ss`, and 12h `h:mm PM`: the part under the cursor moves and carries like a clock (`23:59` → `00:00`, `11:59 PM` → `12:00 AM`); `AM`/`PM` toggles.
 - **Defer to native numbers** — decimal, hex (`0xFF`), and binary (`0b1010`) literals are handled by native `CTRL-A`/`CTRL-X`.
 
 The **earliest target at or after the cursor wins**, mirroring how native
@@ -82,6 +84,20 @@ require("add-subtract-ex").setup({
   -- so signed numbers increment (-5 -> -4) instead of flipping (-5 -> +5).
   sign_aware = false,
 
+  -- Date stepping. Set to false to disable.
+  dates = {
+    format = "dmy",        -- slash dates: "dmy" (dd/MM/yyyy) or "mdy" (MM/dd/yyyy)
+    pad = false,           -- always write day/month with 2 digits
+    default_part = "day",  -- part to step when the cursor is before the date
+    century_pivot = 69,    -- yy below this is 20yy, otherwise 19yy (POSIX)
+  },
+
+  -- Time stepping. Set to false to disable.
+  times = {
+    default_part = "hour", -- part to step when the cursor is before the time
+    two_part = "hm",       -- read a two-part time as "hm" (HH:mm) or "ms" (mm:ss)
+  },
+
   -- Include the shipped word/symbol dictionaries.
   builtins = true,
 
@@ -91,6 +107,41 @@ require("add-subtract-ex").setup({
   symbols = {},
 })
 ```
+
+### Dates
+
+Dates are recognised as `yyyy-M-d` (ISO) and, for slash dates, `d/M/yyyy` or
+`d/M/yy` (`M/d/...` with `format = "mdy"`). Day and month may be 1 or 2 digits;
+the written padding is kept unless `pad = true`.
+
+- The part under the cursor steps. A separator belongs to the part before it;
+  a cursor before the date steps `default_part`.
+- Days roll over months and years (`31/12/2024` → `01/01/2025`). Stepping the
+  month or year clamps the day to the month's end (`2024-01-31` → `2024-02-29`).
+- `yyyy` stops at `0000`/`9999`; `yy` stops at the edges of its pivot window
+  (1969–2068 by default).
+- Date-shaped text that isn't a real date (`31/02/2024`) is left alone with a
+  warning.
+
+> ⚠️ With dates on (the default), slash-separated number triples like `10/20/30`
+> are read as dates, so `<C-a>` warns instead of incrementing a number. Set
+> `dates = false` to get the old behavior back.
+
+### Times
+
+Times are recognised as `HH:mm` and `HH:mm:ss`, plus 12h `h:mm[:ss] AM` (the
+space is optional, `am`/`pm` casing is kept). A 24h hour needs 2 digits, so
+ratios and verse references like `3:16` stay numbers.
+
+- The part under the cursor steps; a separator (including the space before
+  `AM`/`PM`) belongs to the part before it, and a cursor before the time steps
+  `default_part`. On `AM`/`PM` the key toggles it.
+- Parts carry and wrap like a clock: `10:59` → `11:00`, `23:59` → `00:00`,
+  `11:59 PM` → `12:00 AM`. A time after a date never changes the date.
+- A two-part time is ambiguous (`05:30` could be HH:mm or mm:ss). It reads as
+  HH:mm unless `two_part = "ms"`, where minutes wrap within `00`–`59`. Times
+  with seconds or `AM`/`PM` are always clock times.
+- Invalid times (`25:00`, `13:00 PM`) are left alone with a warning.
 
 ### Custom keys (leaving `<C-a>`/`<C-x>` native)
 
@@ -133,8 +184,8 @@ ase.increment() -- like <C-a>
 ase.decrement() -- like <C-x>
 ```
 
-A count applies to numbers and letter shifts (e.g. `5<C-a>` adds 5, or shifts a
-letter 5 positions). Word and symbol pairs are single toggles and ignore the count.
+A count applies to numbers, letter shifts, dates, and times (e.g. `5<C-a>` adds 5, shifts a
+letter 5 positions, or moves a date or time part by 5). Word and symbol pairs are single toggles and ignore the count.
 
 ## Tests
 
