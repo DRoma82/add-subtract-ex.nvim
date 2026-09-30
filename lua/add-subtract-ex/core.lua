@@ -92,6 +92,20 @@ function M.act(config, direction)
 	local cursor = vim.api.nvim_win_get_cursor(0)
 	local cursor_col = cursor[2] + 1
 
+	-- Markdown task checkbox wins over the list marker before it ("-" is a symbol pair).
+	if vim.bo.filetype:find("markdown") then
+		local box_col, box_end = line:match("^%s*[-*+]%s+()%[[ xX]%]()")
+		if not box_col then
+			box_col, box_end = line:match("^%s*%d+[.)]%s+()%[[ xX]%]()")
+		end
+		if box_col and cursor_col < box_end then
+			local mark = line:sub(box_col + 1, box_col + 1) == " " and "x" or " "
+			vim.api.nvim_set_current_line(line:sub(1, box_col) .. mark .. line:sub(box_col + 2))
+			vim.api.nvim_win_set_cursor(0, { cursor[1], box_col - 1 })
+			return
+		end
+	end
+
 	-- Earliest word pair whose word still covers or follows the cursor.
 	local word_col, word_end, word_repl
 	for start_col, word, end_col in line:gmatch("()%f[%w_](%a+)%f[^%w_]()") do

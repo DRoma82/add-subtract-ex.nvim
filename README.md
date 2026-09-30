@@ -12,6 +12,7 @@ the *same* keys to also:
 
 - **Toggle word pairs** — `true`/`false`, `yes`/`no`, `on`/`off`, ... with casing preserved (`TRUE` → `FALSE`, `True` → `False`).
 - **Invert symbol pairs** — `&&`/`||`, `==`/`!=`, `<=`/`>=`, `++`/`--`, `+`/`-`.
+- **Toggle Markdown checkboxes** — `- [ ]` ↔ `- [x]` (also `[X]`, `*`/`+` bullets, and `1.` lists) in `markdown` buffers, when the cursor is on or before the checkbox.
 - **Shift letters** — `a` → `b`, `Z` stays `Z` (no wrapping), with a `count` (`3<C-a>`).
 - **Defer to native numbers** — decimal, hex (`0xFF`), and binary (`0b1010`) literals are handled by native `CTRL-A`/`CTRL-X`.
 
