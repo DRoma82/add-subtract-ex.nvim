@@ -1,6 +1,7 @@
 -- add-subtract-ex.nvim demo  (press <C-a> / <C-x>)
 
 local enabled = true		-- word pair:    true <-> false
+local verbose = true		-- dot-repeat:   . does it again
 local mode    = "left"		-- word pair:    left <-> right
 local ready   = "YES"		-- casing kept:  YES  <-> NO
 

@@ -6,6 +6,16 @@ and the project uses [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Added
+
+- Dot-repeat: `.` repeats the last `<C-a>`/`<C-x>` on whatever is under the
+  cursor (toggle, date, time, letter, or number), keeping its count.
+
+### Fixed
+
+- Numbers stepped inside a macro or mapping now change in order, instead of
+  after the rest of the macro's keys ran.
+
 ## [0.2.0] - 2026-09-30
 
 ### Added

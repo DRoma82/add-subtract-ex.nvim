@@ -5,4 +5,5 @@
 - [x] Shift letters (a -> b), with a count
 - [x] Step dates (yyyy-MM-dd, dd/MM/yyyy, MM/dd/yyyy)
 - [x] Step times (HH:mm, HH:mm:ss, 9:30 PM)
+- [x] Repeat any step with .
 - [ ] Toggle Markdown checkboxes

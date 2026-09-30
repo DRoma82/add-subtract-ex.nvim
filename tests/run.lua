@@ -214,5 +214,20 @@ check("count: 90<C-a> on minute", feed_after({}, "10:00", 3, "90<C-a>"), "11:30"
 check("count: 3<C-a> on number adds 3", feed_after({}, "n = 5", 4, "3<C-a>"), "n = 8")
 check("count: 3<C-a> on letter shifts 3", feed_after({}, "a", 0, "3<C-a>"), "d")
 
+-- Dot-repeat ---------------------------------------------------------------
+local function lines_after(text, keys)
+	ase.setup({})
+	vim.api.nvim_buf_set_lines(0, 0, -1, false, text)
+	vim.api.nvim_win_set_cursor(0, { 1, 0 })
+	vim.api.nvim_feedkeys(vim.api.nvim_replace_termcodes(keys, true, false, true), "x", false)
+	return table.concat(vim.api.nvim_buf_get_lines(0, 0, -1, false), ", ")
+end
+check("dot: repeats toggle after a number", lines_after({ "true", "1", "true" }, "<C-a>j.j."), "false, 2, false")
+check("dot: repeats decrement", lines_after({ "1", "true", "5" }, "<C-x>j.j."), "0, false, 4")
+check("dot: keeps the count", lines_after({ "7" }, "3<C-a>."), "13")
+check("dot: new count replaces it", lines_after({ "7" }, "3<C-a>2.."), "14")
+vim.fn.setreg("q", vim.keycode("<C-a>w<C-a>j0"))
+check("macro: native step runs in order", lines_after({ "1 true", "2 true" }, "2@q"), "2 false, 3 false")
+
 print(("\n%d passed, %d failed"):format(passed, failed))
 vim.cmd(failed == 0 and "cq 0" or "cq 1")

@@ -9,7 +9,7 @@ Set Theme "catppuccin-mocha"
 Set FontFamily "ComicCode Nerd Font"
 Set FontSize 18
 Set Width 1000
-Set Height 720
+Set Height 750
 Set Padding 24
 
 # Open the isolated demo buffer without showing the launch command.
@@ -23,6 +23,9 @@ Sleep 800ms
 # true -> false
 Type "/true" Enter Sleep 500ms
 Ctrl+A Sleep 900ms
+
+# . repeats it on the next line
+Type "j." Sleep 900ms
 
 # left -> right
 Type "/left" Enter Sleep 500ms

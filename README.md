@@ -16,6 +16,7 @@ the *same* keys to also:
 - **Shift letters** — `a` → `b`, `Z` stays `Z` (no wrapping), with a `count` (`3<C-a>`).
 - **Step dates** — `yyyy-MM-dd` and `dd/MM/yyyy` (or `MM/dd/yyyy`, also with `yy`): the day, month, or year under the cursor moves, rolling over months and years (`2024-01-31` → `2024-02-01`).
 - **Step times** — `HH:mm`, `HH:mm:ss`, and 12h `h:mm PM`: the part under the cursor moves and carries like a clock (`23:59` → `00:00`, `11:59 PM` → `12:00 AM`); `AM`/`PM` toggles.
+- **Repeat with `.`** — every action repeats on the target under the cursor, numbers included, with the same count.
 - **Defer to native numbers** — decimal, hex (`0xFF`), and binary (`0b1010`) literals are handled by native `CTRL-A`/`CTRL-X`.
 
 The **earliest target at or after the cursor wins**, mirroring how native
@@ -186,6 +187,9 @@ ase.decrement() -- like <C-x>
 
 A count applies to numbers, letter shifts, dates, and times (e.g. `5<C-a>` adds 5, shifts a
 letter 5 positions, or moves a date or time part by 5). Word and symbol pairs are single toggles and ignore the count.
+
+Dot-repeat (`.`) works through the keys that `setup()` maps; direct calls to
+`increment()`/`decrement()` are not repeatable.
 
 ## Tests
 

@@ -96,6 +96,29 @@ function M.decrement()
 	core.act(M.config, -1)
 end
 
+local direction, rearming = 1, false
+
+-- 'operatorfunc' for the mappings, so "." repeats the plugin rather than a raw edit.
+function M._operator()
+	if rearming then
+		return
+	end
+	if core.act(M.config, direction) then
+		-- The nested native <C-a> took over "."; a no-op g@l hands it back to us.
+		rearming = true
+		vim.cmd.normal({ vim.v.count1 .. "g@l", bang = true })
+		rearming = false
+	end
+end
+
+local function operator_mapping(dir)
+	return function()
+		direction = dir
+		vim.o.operatorfunc = "v:lua.require'add-subtract-ex'._operator"
+		return "g@l"
+	end
+end
+
 -- opts.keys:
 --   nil   -> map <C-a>/<C-x> (default)
 --   false -> map nothing (leave <C-a>/<C-x> native)
@@ -114,10 +137,10 @@ function M.setup(opts)
 	end
 
 	if keys.increment then
-		vim.keymap.set("n", keys.increment, M.increment, { desc = "Add / toggle at cursor" })
+		vim.keymap.set("n", keys.increment, operator_mapping(1), { expr = true, desc = "Add / toggle at cursor" })
 	end
 	if keys.decrement then
-		vim.keymap.set("n", keys.decrement, M.decrement, { desc = "Subtract / toggle at cursor" })
+		vim.keymap.set("n", keys.decrement, operator_mapping(-1), { expr = true, desc = "Subtract / toggle at cursor" })
 	end
 end
 

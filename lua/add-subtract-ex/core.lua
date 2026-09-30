@@ -36,9 +36,10 @@ end
 
 local function native_number(native_key)
 	-- Preserve native Ctrl-a/Ctrl-x number behavior, including any pending count.
-	-- The "x" flag runs the keys synchronously so direct increment()/decrement()
-	-- API calls have the buffer updated by the time they return, like the other paths.
-	vim.api.nvim_feedkeys(vim.api.nvim_replace_termcodes(vim.v.count1 .. native_key, true, false, true), "nx", false)
+	-- :normal! runs synchronously and only its own keys, leaving any pending
+	-- typeahead (a macro, a mapping) for after this call.
+	vim.cmd.normal({ vim.v.count1 .. vim.keycode(native_key), bang = true })
+	return true
 end
 
 -- True when the character at `col` belongs to a 0x.../0b... literal, so native
@@ -274,7 +275,7 @@ end
 
 -- Act on the current line. `config` provides `words`/`symbols` lookups, a
 -- `letters` flag and optional `dates`/`times` settings; `direction` is 1 to add
--- or -1 to subtract.
+-- or -1 to subtract. Returns true when native Ctrl-a/Ctrl-x ran.
 function M.act(config, direction)
 	local native_key = direction < 0 and "<C-x>" or "<C-a>"
 
@@ -325,8 +326,7 @@ function M.act(config, direction)
 
 	if earliest == math.huge then
 		-- Nothing actionable on the line, so still let native Ctrl-a/Ctrl-x try.
-		native_number(native_key)
-		return
+		return native_number(native_key)
 	end
 
 	-- Word/symbol replacements win ties against their own leading character.
@@ -344,8 +344,7 @@ function M.act(config, direction)
 			and (sym_symbol == "+" or sym_symbol == "-")
 			and line:sub(sym_end + 1, sym_end + 1):match("%d")
 		then
-			native_number(native_key)
-			return
+			return native_number(native_key)
 		end
 
 		local replacement = config.symbols[sym_symbol]
@@ -373,14 +372,12 @@ function M.act(config, direction)
 	end
 
 	if num_col == earliest then
-		native_number(native_key)
-		return
+		return native_number(native_key)
 	end
 
 	-- A hex digit inside a 0x.../0b... literal belongs to native number handling.
 	if in_number_literal(line, letter_col) then
-		native_number(native_key)
-		return
+		return native_number(native_key)
 	end
 
 	local step = direction * vim.v.count1
