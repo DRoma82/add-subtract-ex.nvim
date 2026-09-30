@@ -56,15 +56,36 @@ Ctrl+A Sleep 900ms
 Type "/++" Enter Sleep 500ms
 Ctrl+A Sleep 900ms
 
-# A -> B (letter shift)
+# A -> D (letter shift with a count)
 Type "/A'" Enter Sleep 500ms
-Ctrl+A Sleep 900ms
+Type "3" Ctrl+A Sleep 900ms
 
 # 2024-01-31 -> 2024-02-01 (day rolls the month)
 Type `/31"` Enter Sleep 500ms
 Ctrl+A Sleep 900ms
 
+# The part under the cursor steps: month (02 -> 03), then year (2024 -> 2025).
+Type "hh" Sleep 400ms
+Ctrl+A Sleep 900ms
+Type `F"l` Sleep 400ms
+Ctrl+A Sleep 900ms
+
 # 11:59 PM -> 12:00 AM (minute carries the hour and meridiem)
 Type "/59 " Enter Sleep 500ms
+Ctrl+A Sleep 900ms
+
+# AM -> PM (toggle with the cursor on it)
+Type "fA" Sleep 400ms
 Ctrl+A Sleep 1s
+
+# Markdown checkboxes only toggle in markdown buffers, so switch files off-camera.
+Hide
+Type ":e assets/demo.md" Enter
+Sleep 500ms
+Show
+Sleep 800ms
+
+# Tick the last feature: [ ] -> [x]
+Type "G" Sleep 500ms
+Ctrl+A Sleep 1.5s
 

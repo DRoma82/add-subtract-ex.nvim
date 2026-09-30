@@ -7,6 +7,9 @@ Files:
 
 - `demo.txt` — the scratch buffer, one feature per line, each annotated with the
   expected `<C-a>` / `<C-x>` result.
+- `demo.md` — the plugin's feature list as Markdown tasks. The tape switches to
+  it off-camera (checkboxes only toggle in `markdown` buffers) and ticks the
+  last one.
 - `demo-init.lua` — a curated, isolated Neovim config: Catppuccin Mocha theme +
   the local plugin under development (loaded via `dir`), with legacy Lua syntax
   highlighting. It writes its plugins/state under `assets/.demo/` (gitignored),
