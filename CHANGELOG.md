@@ -6,6 +6,8 @@ and the project uses [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [0.3.0] - 2026-09-30
+
 ### Added
 
 - Dot-repeat: `.` repeats the last `<C-a>`/`<C-x>` on whatever is under the
@@ -47,6 +49,7 @@ and the project uses [Semantic Versioning](https://semver.org/).
 - `sign_aware` option to treat a leading `+`/`-` as a number sign.
 - CI, demo GIF, and install docs for lazy.nvim and `vim.pack`.
 
-[Unreleased]: https://github.com/DRoma82/add-subtract-ex.nvim/compare/v0.2.0...HEAD
+[Unreleased]: https://github.com/DRoma82/add-subtract-ex.nvim/compare/v0.3.0...HEAD
+[0.3.0]: https://github.com/DRoma82/add-subtract-ex.nvim/compare/v0.2.0...v0.3.0
 [0.2.0]: https://github.com/DRoma82/add-subtract-ex.nvim/compare/v0.1.0...v0.2.0
 [0.1.0]: https://github.com/DRoma82/add-subtract-ex.nvim/releases/tag/v0.1.0
