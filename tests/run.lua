@@ -97,6 +97,18 @@ check(
 	"bar"
 )
 
+-- Markdown checkboxes ----------------------------------------------------
+vim.bo.filetype = "markdown"
+check("checkbox: [ ] -> [x]", line_after({}, "- [ ] task", 3, "inc"), "- [x] task")
+check("checkbox: [X] -> [ ] (dec)", line_after({}, "- [X] task", 3, "dec"), "- [ ] task")
+check("checkbox: beats bullet at col 0", line_after({}, "- [ ] task", 0, "inc"), "- [x] task")
+check("checkbox: * bullet, indented", line_after({}, "  * [x] task", 0, "inc"), "  * [ ] task")
+check("checkbox: ordered list", line_after({}, "1. [ ] task", 0, "inc"), "1. [x] task")
+check("checkbox: cursor past box -> number", line_after({}, "- [ ] buy 5 eggs", 10, "inc"), "- [ ] buy 6 eggs")
+vim.bo.filetype = "lua"
+check("checkbox: ignored outside markdown", line_after({}, "- [ ] task", 0, "inc"), "+ [ ] task")
+vim.bo.filetype = ""
+
 -- Keymaps -----------------------------------------------------------------
 pcall(vim.keymap.del, "n", "<C-a>")
 ase.setup({})
