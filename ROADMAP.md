@@ -1,9 +1,5 @@
 # Roadmap
 
-- [ ] **Cycles longer than two** (dial.nvim `constant`, switch.vim lists):
-  `foo -> bar -> baz -> foo`. `words`/`symbols` only take pairs today. Built-in
-  candidates: weekdays (`Mon`...`Sun`, `Monday`...`Sunday`) and month names
-  (`Jan`/`January`).
 - [ ] **Per-filetype rules** (dial.nvim `on_filetype`, switch.vim
   `b:switch_custom_definitions`): e.g. `let`/`const` in TypeScript,
   `public`/`private`, `==`/`===` in JavaScript. The Markdown checkbox is the only

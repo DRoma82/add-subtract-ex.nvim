@@ -1,5 +1,5 @@
--- add-subtract-ex.nvim: an extended Ctrl-a / Ctrl-x that also toggles word
--- pairs (true/false), symbol pairs (&&/||) and shifts letters, while keeping
+-- add-subtract-ex.nvim: an extended Ctrl-a / Ctrl-x that also cycles words
+-- and symbols and shifts letters, while keeping
 -- native number handling (including hex/bin literals).
 
 local core = require("add-subtract-ex.core")
@@ -29,38 +29,59 @@ local default_symbols = {
 	{ "+", "-" },
 }
 
--- Build a bidirectional lookup from an ordered list of { a, b } pairs. Later
--- pairs override earlier ones and drop any now-stale reverse mapping, so a user
--- pair like { "true", "apple" } cleanly replaces the shipped { "true", "false" }.
-local function build_lookup(pair_lists)
+local month_cycles = {
+	full = {
+		"january",
+		"february",
+		"march",
+		"april",
+		"may",
+		"june",
+		"july",
+		"august",
+		"september",
+		"october",
+		"november",
+		"december",
+	},
+	short = { "jan", "feb", "mar", "apr", "may", "jun", "jul", "aug", "sep", "oct", "nov", "dec" },
+}
+local weekday_cycles = {
+	full = { "monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday" },
+	short = { "mon", "tue", "wed", "thu", "fri", "sat", "sun" },
+}
+
+-- Removing the whole old cycle prevents stale transitions after an override.
+local function build_lookup(cycle_lists, lowercase)
 	local lookup = {}
-	for _, pairs_list in ipairs(pair_lists) do
-		for _, pair in ipairs(pairs_list or {}) do
-			local a, b = pair[1], pair[2]
-			local old_a = lookup[a]
-			if old_a and old_a ~= b then
-				lookup[old_a] = nil
+	for _, cycles in ipairs(cycle_lists) do
+		assert(type(cycles) == "table" and vim.islist(cycles), "add-subtract-ex: cycles must be a list")
+		for _, values in ipairs(cycles) do
+			assert(
+				type(values) == "table" and vim.islist(values) and #values >= 2,
+				"add-subtract-ex: each cycle needs at least two items"
+			)
+			local cycle, seen = {}, {}
+			for i, value in ipairs(values) do
+				assert(type(value) == "string" and value ~= "", "add-subtract-ex: cycle items must be nonempty strings")
+				value = lowercase and value:lower() or value
+				assert(not seen[value], "add-subtract-ex: cycle items must be distinct")
+				cycle[i], seen[value] = value, true
 			end
-			local old_b = lookup[b]
-			if old_b and old_b ~= a then
-				lookup[old_b] = nil
+			for _, value in ipairs(cycle) do
+				local old = lookup[value]
+				if old then
+					for _, member in ipairs(old.cycle) do
+						lookup[member] = nil
+					end
+				end
 			end
-			lookup[a] = b
-			lookup[b] = a
+			for i, value in ipairs(cycle) do
+				lookup[value] = { cycle = cycle, index = i }
+			end
 		end
 	end
 	return lookup
-end
-
--- Word lookups are case-insensitive (core lowercases the match) and casing is
--- re-applied at runtime, so word pairs are normalized to lowercase here. This
--- lets custom pairs like { "Foo", "Bar" } match and case correctly.
-local function lower_pairs(pairs_list)
-	local out = {}
-	for i, pair in ipairs(pairs_list or {}) do
-		out[i] = { pair[1]:lower(), pair[2]:lower() }
-	end
-	return out
 end
 
 local default_dates = { format = "dmy", pad = false, default_part = "day", century_pivot = 69 }
@@ -75,9 +96,29 @@ end
 local function resolve(opts)
 	opts = opts or {}
 	local use_builtins = opts.builtins ~= false
+	local months = opts.months == nil and "full" or opts.months
+	local weekdays = opts.weekdays == nil and "both" or opts.weekdays
+	assert(months == "none" or month_cycles[months], 'add-subtract-ex: months must be "full", "short", or "none"')
+	assert(
+		weekdays == "none" or weekdays == "both" or weekday_cycles[weekdays],
+		'add-subtract-ex: weekdays must be "full", "short", "both", or "none"'
+	)
+	local word_cycles = {}
+	if use_builtins then
+		vim.list_extend(word_cycles, default_words)
+		if months ~= "none" then
+			word_cycles[#word_cycles + 1] = month_cycles[months]
+		end
+		if weekdays == "both" then
+			word_cycles[#word_cycles + 1] = weekday_cycles.full
+			word_cycles[#word_cycles + 1] = weekday_cycles.short
+		elseif weekdays ~= "none" then
+			word_cycles[#word_cycles + 1] = weekday_cycles[weekdays]
+		end
+	end
 	return {
-		words = build_lookup({ lower_pairs(use_builtins and default_words or {}), lower_pairs(opts.words) }),
-		symbols = build_lookup({ use_builtins and default_symbols or {}, opts.symbols }),
+		words = build_lookup({ word_cycles, opts.words or {} }, true),
+		symbols = build_lookup({ use_builtins and default_symbols or {}, opts.symbols or {} }),
 		letters = opts.letters ~= false,
 		sign_aware = opts.sign_aware == true,
 		dates = feature(opts.dates, default_dates),

@@ -9,7 +9,7 @@ Set Theme "catppuccin-mocha"
 Set FontFamily "ComicCode Nerd Font"
 Set FontSize 18
 Set Width 1000
-Set Height 780
+Set Height 820
 Set Padding 24
 
 # Open the isolated demo buffer without showing the launch command.
@@ -34,6 +34,17 @@ Ctrl+A Sleep 900ms
 # YES -> NO (casing preserved)
 Type "/YES" Enter Sleep 500ms
 Ctrl+A Sleep 900ms
+
+# Weekday cycle: Sun -> Mon -> Sun, then 2<C-a> -> Tue.
+Type "/Sun December" Enter Sleep 500ms
+Ctrl+A Sleep 900ms
+Ctrl+X Sleep 900ms
+Type "2" Ctrl+A Sleep 900ms
+
+# Full month cycle: December -> January -> December.
+Type `/December"` Enter Sleep 500ms
+Ctrl+A Sleep 900ms
+Ctrl+X Sleep 900ms
 
 # 41 -> 42 (native number)
 Type "/41" Enter Sleep 500ms

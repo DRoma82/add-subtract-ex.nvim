@@ -97,6 +97,121 @@ check(
 	"bar"
 )
 
+-- Ordered cycles ---------------------------------------------------------
+local cycle_opts = { words = { { "foo", "bar", "baz" } }, symbols = { { "@", "#", "$" } } }
+check("cycle: word forward", line_after(cycle_opts, "foo", 0, "inc"), "bar")
+check("cycle: word backward", line_after(cycle_opts, "bar", 1, "dec"), "foo")
+check("cycle: word forward wrap", line_after(cycle_opts, "baz", 2, "inc"), "foo")
+check("cycle: word backward wrap", line_after(cycle_opts, "foo", 0, "dec"), "baz")
+check("cycle: uppercase", line_after(cycle_opts, "BAZ", 0, "inc"), "FOO")
+check("cycle: title case", line_after(cycle_opts, "Foo", 0, "dec"), "Baz")
+check("cycle: symbol forward", line_after(cycle_opts, "@", 0, "inc"), "#")
+check("cycle: symbol forward wrap", line_after(cycle_opts, "$", 0, "inc"), "@")
+check("cycle: symbol backward wrap", line_after(cycle_opts, "@", 0, "dec"), "$")
+check(
+	"cycle: preserves word boundaries",
+	line_after({ letters = false, words = cycle_opts.words }, "foobar foo_ foo1", 0, "inc"),
+	"foobar foo_ foo2"
+)
+check("cycle: default full month", line_after({}, "May", 0, "inc"), "June")
+check("cycle: default month backward", line_after({}, "May", 2, "dec"), "April")
+check("cycle: month forward wrap", line_after({}, "December", 0, "inc"), "January")
+check("cycle: month backward wrap", line_after({}, "January", 0, "dec"), "December")
+check("cycle: month uppercase", line_after({}, "JANUARY", 0, "inc"), "FEBRUARY")
+check("cycle: short month", line_after({ months = "short" }, "May", 0, "inc"), "Jun")
+check("cycle: short month backward", line_after({ months = "short" }, "May", 0, "dec"), "Apr")
+check(
+	"cycle: short month excludes full names",
+	line_after({ months = "short", letters = false }, "January", 0, "inc"),
+	"January"
+)
+check("cycle: full month excludes short names", line_after({ letters = false }, "Jan", 0, "inc"), "Jan")
+check("cycle: months none", line_after({ months = "none", letters = false }, "May", 0, "inc"), "May")
+check("cycle: default full weekday", line_after({}, "Monday", 0, "inc"), "Tuesday")
+check("cycle: default short weekday", line_after({}, "Mon", 0, "inc"), "Tue")
+check("cycle: weekday forward wrap", line_after({}, "Sun", 0, "inc"), "Mon")
+check("cycle: weekday backward wrap", line_after({}, "Monday", 0, "dec"), "Sunday")
+check(
+	"cycle: full weekdays only",
+	line_after({ weekdays = "full", letters = false }, "Mon Monday", 0, "inc"),
+	"Mon Tuesday"
+)
+check(
+	"cycle: short weekdays only",
+	line_after({ weekdays = "short", letters = false }, "Monday Mon", 0, "inc"),
+	"Monday Tue"
+)
+check("cycle: weekdays none", line_after({ weekdays = "none", letters = false }, "Mon Monday", 0, "inc"), "Mon Monday")
+check(
+	"cycle: builtins false",
+	line_after({ builtins = false, letters = false }, "May Mon true &&", 0, "inc"),
+	"May Mon true &&"
+)
+check(
+	"cycle: calendar options leave pairs enabled",
+	line_after({ months = "none", weekdays = "none" }, "true", 0, "inc"),
+	"false"
+)
+check(
+	"cycle: custom month with builtins false",
+	line_after({ builtins = false, words = { { "May", "June", "July" } } }, "May", 0, "dec"),
+	"July"
+)
+check(
+	"cycle: custom month with months none",
+	line_after({ months = "none", words = { { "May", "June", "July" } } }, "May", 0, "inc"),
+	"June"
+)
+check(
+	"cycle: custom weekday with weekdays none",
+	line_after({ weekdays = "none", words = { { "Mon", "Tue", "Wed" } } }, "Wed", 0, "inc"),
+	"Mon"
+)
+check(
+	"cycle: overrides built-in via any member",
+	line_after({ words = { { "maybe", "false", "unknown" } } }, "false", 0, "inc"),
+	"unknown"
+)
+check(
+	"cycle: overridden pair has no stale member",
+	line_after({ letters = false, words = { { "maybe", "false", "unknown" } } }, "true", 0, "inc"),
+	"true"
+)
+local override_opts = { letters = false, words = { { "foo", "bar", "baz" }, { "bar", "qux", "zap" } } }
+check("cycle: later list replaces whole cycle", line_after(override_opts, "foo baz bar", 0, "inc"), "foo baz qux")
+check(
+	"cycle: custom month removes old cycle",
+	line_after({ letters = false, words = { { "May", "June", "July" } } }, "January May", 0, "inc"),
+	"January June"
+)
+check(
+	"cycle: override both weekdays",
+	line_after({ letters = false, words = { { "Mon", "Monday", "holiday" } } }, "Tue Tuesday Mon", 0, "inc"),
+	"Tue Tuesday Monday"
+)
+check(
+	"cycle: symbol override drops stale member",
+	line_after({ symbols = { { "&&", "||", "??" }, { "||", "!" } } }, "?? ||", 0, "inc"),
+	"?? !"
+)
+local mixed_case_opts = { words = { { "Foo", "BAR", "Baz" } } }
+check("cycle: normalizes every item", line_after(mixed_case_opts, "bar", 0, "inc"), "baz")
+check("cycle: setup does not mutate words", mixed_case_opts.words[1][2], "BAR")
+for _, case in ipairs({
+	{ "invalid months", { months = "both" } },
+	{ "invalid weekdays", { weekdays = false } },
+	{ "one item", { words = { { "foo" } } } },
+	{ "empty list", { words = { {} } } },
+	{ "non-string item", { symbols = { { "@", 1 } } } },
+	{ "empty item", { symbols = { { "@", "" } } } },
+	{ "duplicate word ignoring case", { words = { { "Foo", "bar", "foo" } } } },
+	{ "duplicate symbol", { symbols = { { "@", "#", "@" } } } },
+	{ "sparse cycle", { words = { { [1] = "foo", [3] = "bar" } } } },
+	{ "non-list cycles", { words = { foo = "bar" } } },
+}) do
+	check("cycle rejects: " .. case[1], pcall(ase.setup, case[2]), false)
+end
+
 -- Markdown checkboxes ----------------------------------------------------
 vim.bo.filetype = "markdown"
 check("checkbox: [ ] -> [x]", line_after({}, "- [ ] task", 3, "inc"), "- [x] task")
@@ -214,6 +329,15 @@ check("count: 90<C-a> on minute", feed_after({}, "10:00", 3, "90<C-a>"), "11:30"
 check("count: 3<C-a> on number adds 3", feed_after({}, "n = 5", 4, "3<C-a>"), "n = 8")
 check("count: 3<C-a> on letter shifts 3", feed_after({}, "a", 0, "3<C-a>"), "d")
 
+check("count: cycle forward modulo length", feed_after(cycle_opts, "foo", 0, "5<C-a>"), "baz")
+check("count: cycle backward modulo length", feed_after(cycle_opts, "foo", 0, "5<C-x>"), "bar")
+check("count: full cycle leaves word unchanged", feed_after(cycle_opts, "foo", 0, "3<C-a>"), "foo")
+check("count: symbol cycle", feed_after(cycle_opts, "@", 0, "2<C-x>"), "#")
+check("count: month wraps", feed_after({}, "December", 0, "14<C-a>"), "February")
+check("count: weekday", feed_after({}, "Mon", 0, "2<C-a>"), "Wed")
+check("count: pairs still toggle once", feed_after({}, "true", 0, "2<C-a>"), "false")
+check("count: symbol pairs still toggle once", feed_after({}, "&&", 0, "2<C-x>"), "||")
+
 -- Dot-repeat ---------------------------------------------------------------
 local function lines_after(text, keys)
 	ase.setup({})
@@ -224,6 +348,8 @@ local function lines_after(text, keys)
 end
 check("dot: repeats toggle after a number", lines_after({ "true", "1", "true" }, "<C-a>j.j."), "false, 2, false")
 check("dot: repeats decrement", lines_after({ "1", "true", "5" }, "<C-x>j.j."), "0, false, 4")
+check("dot: repeats cycle count", lines_after({ "Mon", "Monday" }, "2<C-a>j."), "Wed, Wednesday")
+check("dot: repeats backward cycle", lines_after({ "January", "May" }, "<C-x>j."), "December, April")
 check("dot: keeps the count", lines_after({ "7" }, "3<C-a>."), "13")
 check("dot: new count replaces it", lines_after({ "7" }, "3<C-a>2.."), "14")
 vim.fn.setreg("q", vim.keycode("<C-a>w<C-a>j0"))
@@ -246,6 +372,24 @@ check("visual: progressive decrement", visual_after({}, { "10 10", "10 10" }, "V
 check("visual: count", visual_after({}, { "10 10" }, "V3<C-a>"), "13 13")
 check("visual: progressive count", visual_after({}, { "10 10" }, "V3g<C-a>"), "13 16")
 check("visual: mixed targets", visual_after({}, { "true && 9 a" }, "V<C-a>"), "false || 10 b")
+check("visual: cycles with count", visual_after(cycle_opts, { "foo bar @" }, "V2<C-a>"), "baz foo $")
+check("visual: progressive cycles", visual_after(cycle_opts, { "foo foo", "foo" }, "Vjg<C-a>"), "bar baz, foo")
+check(
+	"visual: progressive decrement cycles",
+	visual_after(cycle_opts, { "foo foo", "foo" }, "Vjg<C-x>"),
+	"baz bar, foo"
+)
+check("visual: progressive count cycles", visual_after(cycle_opts, { "foo foo @" }, "V2g<C-a>"), "baz bar @")
+check(
+	"visual: cycles and pairs",
+	visual_after({}, { "true Mon Monday && January" }, "V2g<C-a>"),
+	"false Fri Sunday || November"
+)
+check("visual: touched cycle word", visual_after({}, { "Monday Friday" }, "lv<C-x>"), "Sunday Friday")
+check("visual: length-changing cycles", visual_after({}, { "May June July" }, "V<C-a>"), "June July August")
+check("visual: cycles fill blanks", visual_after({}, { "Sunday", "", "" }, "V2j<C-a>"), "Monday, Tuesday, Wednesday")
+check("visual: cycles fill blanks progressively", visual_after({}, { "Mon", "", "" }, "V2jg<C-a>"), "Tue, Thu, Sun")
+check("visual: undo cycles", visual_after({}, { "May June July" }, "V<C-a>u"), "May June July")
 check("visual: toggles ignore count", visual_after({}, { "true false ++" }, "V3g<C-x>"), "false true --")
 check("visual: each letter is a target", visual_after({}, { "abc" }, "Vg<C-a>"), "bdf")
 check("visual: clamped letter does not stop scanning", visual_after({}, { "z a" }, "Vg<C-a>"), "z c")

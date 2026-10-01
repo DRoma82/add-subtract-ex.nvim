@@ -1,5 +1,5 @@
 -- Core logic for add-subtract-ex: act on the earliest target at or after the
--- cursor. Word pairs and symbol pairs invert to their counterpart, dates and
+-- cursor. Words and symbols cycle through their lists, dates and
 -- times step the part under the cursor, numbers use
 -- the native Ctrl-a/Ctrl-x command, and letters shift alphabetically without
 -- cycling. Whichever appears first wins, matching how native Ctrl-a targets the
@@ -60,7 +60,7 @@ local function in_number_literal(line, col)
 	return token:match("^0[xX][%x_]+$") ~= nil or token:match("^0[bB][01_]+$") ~= nil
 end
 
--- Earliest symbol pair whose match still covers or follows the cursor.
+-- Earliest symbol whose match still covers or follows the cursor.
 local function find_symbol(symbols, line, cursor_col, min_start)
 	local best_col, best_end, best_symbol
 	for symbol in pairs(symbols) do
@@ -324,20 +324,20 @@ local function find_target(config, line, cursor_col, last_col, min_start)
 		end
 	end
 
-	-- Earliest word pair whose word still covers or follows the cursor.
-	local word_col, word_end, word_repl
+	-- Earliest configured word whose match still covers or follows the cursor.
+	local word_col, word_end, word_entry
 	for start_col, word, end_col in line:gmatch("()%f[%w_](%a+)%f[^%w_]()") do
 		-- end_col is the position after the word, so the word covers up to end_col - 1.
 		if cursor_col < end_col and (not min_start or start_col >= min_start) then
 			local target = config.words[word:lower()]
 			if target then
-				word_col, word_end, word_repl = start_col, end_col, match_case(word, target)
+				word_col, word_end, word_entry = start_col, end_col, target
 				break
 			end
 		end
 	end
 
-	-- Earliest symbol pair, number, and letter at or after the cursor.
+	-- Earliest symbol, number, and letter at or after the cursor.
 	local sym_col, sym_end, sym_symbol = find_symbol(config.symbols, line, cursor_col, min_start)
 	local date = config.dates and find_date(config.dates, line, cursor_col, min_start)
 	local date_col = date and date.start_col or math.huge
@@ -356,7 +356,7 @@ local function find_target(config, line, cursor_col, last_col, min_start)
 
 	-- Word/symbol replacements win ties against their own leading character.
 	if word_col == earliest then
-		return { start_col = word_col, end_col = word_end - 1, replacement = word_repl }
+		return { kind = "word", start_col = word_col, end_col = word_end - 1, entry = word_entry }
 	end
 
 	if sym_col == earliest then
@@ -370,7 +370,7 @@ local function find_target(config, line, cursor_col, last_col, min_start)
 			return number_span(config, line, sym_col, min_start)
 		end
 
-		return { start_col = sym_col, end_col = sym_end, replacement = config.symbols[sym_symbol] }
+		return { kind = "symbol", start_col = sym_col, end_col = sym_end, entry = config.symbols[sym_symbol] }
 	end
 
 	local stamp, stepped, stamp_config
@@ -393,6 +393,17 @@ local function find_target(config, line, cursor_col, last_col, min_start)
 end
 
 local function replacement_for(target, line, cursor_col, step)
+	if target.kind == "word" or target.kind == "symbol" then
+		local entry = target.entry
+		local cycle = entry.cycle
+		-- Two-item lists keep their single-toggle behavior even with a count.
+		local offset = #cycle == 2 and 1 or step
+		local replacement = cycle[(entry.index - 1 + offset) % #cycle + 1]
+		if target.kind == "word" then
+			replacement = match_case(line:sub(target.start_col, target.end_col), replacement)
+		end
+		return replacement, target.start_col
+	end
 	if target.kind == "date" or target.kind == "time" then
 		if not target.valid then
 			local text = line:sub(target.start_col, target.end_col)

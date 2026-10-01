@@ -12,6 +12,7 @@ the *same* keys to also:
 
 - **Toggle word pairs** — `true`/`false`, `yes`/`no`, `on`/`off`, ... with casing preserved (`TRUE` → `FALSE`, `True` → `False`).
 - **Invert symbol pairs** — `&&`/`||`, `==`/`!=`, `<=`/`>=`, `++`/`--`, `+`/`-`.
+- Cycle word and symbol lists forward or backward, wrapping at either end. Weekdays and full month names work by default (`Sun` → `Mon`, `December` → `January`), with casing preserved.
 - **Toggle Markdown checkboxes** — `- [ ]` ↔ `- [x]` (also `[X]`, `*`/`+` bullets, and `1.` lists) in `markdown` buffers, when the cursor is on or before the checkbox.
 - **Shift letters** — `a` → `b`, `Z` stays `Z` (no wrapping), with a `count` (`3<C-a>`).
 - **Step dates** — `yyyy-MM-dd` and `dd/MM/yyyy` (or `MM/dd/yyyy`, also with `yy`): the day, month, or year under the cursor moves, rolling over months and years (`2024-01-31` → `2024-02-01`).
@@ -101,15 +102,35 @@ require("add-subtract-ex").setup({
     two_part = "hm",       -- read a two-part time as "hm" (HH:mm) or "ms" (mm:ss)
   },
 
-  -- Include the shipped word/symbol dictionaries.
+  -- Include all shipped word/symbol pairs and calendar cycles.
   builtins = true,
+  months = "full",   -- "full" | "short" | "none"
+  weekdays = "both", -- "full" | "short" | "both" | "none"
 
-  -- Extra pairs. Each { a, b } toggles both ways. A pair whose first element
-  -- matches a built-in (e.g. { "true", "apple" }) overrides that built-in.
+  -- Extra ordered lists. Two items toggle once; longer lists honor counts.
+  -- Sharing any item replaces the whole earlier pair or cycle.
   words = {},
   symbols = {},
 })
 ```
+
+### Word and symbol cycles
+
+`<C-a>` moves forward through a list; `<C-x>` moves backward. Both wrap at the
+ends. Lists of three or more items honor counts, so `2<C-a>` on `Mon` becomes
+`Wed`. Two-item lists remain single toggles and ignore counts in both directions.
+Word matching is case-insensitive and preserves lowercase, uppercase, or title
+case. Words match whole alphabetic tokens, not parts of identifiers.
+
+- `months = "full"` ships `January` through `December`. Use `"short"` for `Jan`
+  through `Dec`, or `"none"` to disable built-in month cycling. Only one form is
+  enabled at a time because both contain `May`: full gives `May` → `June`, short
+  gives `May` → `Jun`.
+- `weekdays = "both"` ships `Monday` through `Sunday` and `Mon` through `Sun`.
+  Use `"full"` or `"short"` for one form, or `"none"` to disable both.
+- `builtins = false` disables all shipped pairs and cycles regardless of these
+  settings. Custom `words` and `symbols` lists still work. Disabling a calendar
+  cycle does not disable letter shifting; use `letters = false` for that.
 
 ### Dates
 
@@ -159,8 +180,10 @@ it is selected, even if it extends outside the selection.
   `g<C-a>` produces `11 12` and `13 14`.
 - Fully selected dates and times step their configured `default_part`. If the
   selection starts inside a timestamp, that part steps instead.
-- Word pairs, symbol pairs, checkboxes, and AM/PM remain single toggles. They
-  occupy a position in the progressive sequence but ignore its step. Invalid
+- Word and symbol lists of three or more items use the count and progressive
+  step, wrapping within their list.
+- Two-item word and symbol pairs, checkboxes, and AM/PM remain single toggles.
+  They occupy a position in the progressive sequence but ignore its step. Invalid
   dates and times warn, stay unchanged, and do not advance the sequence.
 - With letters enabled, each ASCII letter outside a recognised token is a
   target, including letters in comments and prose. Set `letters = false` to
@@ -198,14 +221,22 @@ calling `setup()` again does not remove mappings installed by an earlier call.
 ```lua
 require("add-subtract-ex").setup({
   words = {
-    { "foo", "bar" },      -- new pair
-    { "true", "apple" },   -- overrides the built-in true/false
+    { "foo", "bar", "baz" },
+    { "true", "apple" },
   },
   symbols = {
-    { "<", ">" },
+    { "<", "=", ">" },
   },
 })
 ```
+
+Lists load in order, built-ins first. A later list sharing any item removes the
+whole earlier list before installing the new one. Above, `true`/`false` is
+replaced by `true`/`apple`, so `false` is no longer a toggle target. Overriding a
+weekday or month likewise removes its entire cycle, leaving no stale mappings.
+Items must be distinct nonempty strings, with at least two per list. Word items
+must also be distinct after lowercasing. Invalid lists or calendar options raise
+an error during `setup()`.
 
 ### Disabling built-ins
 
@@ -232,8 +263,10 @@ ase.increment_visual(true) -- like visual g<C-a>
 ase.decrement_visual(true) -- like visual g<C-x>
 ```
 
-A count applies to numbers, letter shifts, dates, and times (e.g. `5<C-a>` adds 5, shifts a
-letter 5 positions, or moves a date or time part by 5). Word and symbol pairs are single toggles and ignore the count.
+A count applies to numbers, letter shifts, dates, times, and word/symbol lists
+of three or more items. `5<C-a>` adds 5, shifts a letter 5 positions, moves a date
+or time part by 5, or advances a cycle 5 positions with wrapping. Two-item word
+and symbol pairs are single toggles and ignore the count.
 
 Normal-mode dot-repeat (`.`) works through the keys that `setup()` maps;
 direct calls to `increment()`/`decrement()` are not repeatable.

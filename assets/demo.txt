@@ -4,6 +4,7 @@ local enabled = true		-- word pair:    true <-> false
 local verbose = true		-- dot-repeat:   . does it again
 local mode    = "left"		-- word pair:    left <-> right
 local ready   = "YES"		-- casing kept:  YES  <-> NO
+local calendar = "Sun December"	-- cycles: Sun -> Mon, December -> January; reverse and count
 
 local count   = 41			-- number:       41     -> 42
 local color   = 0xFE		-- hex literal:  0xFE   -> 0xFF

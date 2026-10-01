@@ -6,6 +6,19 @@ and the project uses [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [0.5.0] - 2026-10-01
+
+### Added
+
+- `words` and `symbols` accept ordered lists of three or more items. `<C-a>`
+  cycles forward and `<C-x>` backward, wrapping at either end and honoring
+  counts and progressive visual steps. Two-item pairs still toggle once.
+- Full month names and both full and abbreviated weekdays cycle by default,
+  with casing preserved. Set `months = "short"` for abbreviated months, or
+  `months = "none"` to disable them. Set `weekdays` to `"full"`, `"short"`, or
+  `"none"` to limit or disable weekdays. `builtins = false` disables all shipped
+  pairs and cycles; custom lists remain available.
+
 ## [0.4.0] - 2026-09-30
 
 ### Added
@@ -59,7 +72,8 @@ and the project uses [Semantic Versioning](https://semver.org/).
 - `sign_aware` option to treat a leading `+`/`-` as a number sign.
 - CI, demo GIF, and install docs for lazy.nvim and `vim.pack`.
 
-[Unreleased]: https://github.com/DRoma82/add-subtract-ex.nvim/compare/v0.4.0...HEAD
+[Unreleased]: https://github.com/DRoma82/add-subtract-ex.nvim/compare/v0.5.0...HEAD
+[0.5.0]: https://github.com/DRoma82/add-subtract-ex.nvim/compare/v0.4.0...v0.5.0
 [0.4.0]: https://github.com/DRoma82/add-subtract-ex.nvim/compare/v0.3.0...v0.4.0
 [0.3.0]: https://github.com/DRoma82/add-subtract-ex.nvim/compare/v0.2.0...v0.3.0
 [0.2.0]: https://github.com/DRoma82/add-subtract-ex.nvim/compare/v0.1.0...v0.2.0
